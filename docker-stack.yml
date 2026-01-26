@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Backend - FastAPI
+  # ==========================================
+  backend:
+    image: ${REGISTRY:-ghcr.io/guircosta}/metamanager-backend:${TAG:-latest}
+    environment:
+      - META_ACCESS_TOKEN=${META_ACCESS_TOKEN}
+      - META_BUSINESS_ID=${META_BUSINESS_ID}
+      - META_AD_ACCOUNT_ID=${META_AD_ACCOUNT_ID}
+      - META_API_VERSION=${META_API_VERSION:-v24.0}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - OPENAI_WHISPER_MODEL=${OPENAI_WHISPER_MODEL:-whisper-1}
+      - FRONTEND_URL=https://${DOMAIN}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL:-}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-}
+      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE:-}
+    volumes:
+      - backend_data:/app/data
+    networks:
+      - IdevaNet
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.metamanager-backend.rule=Host(`api.${DOMAIN}`)"
+        - "traefik.http.routers.metamanager-backend.entrypoints=websecure"
+        - "traefik.http.routers.metamanager-backend.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.metamanager-backend.loadbalancer.server.port=8000"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # ==========================================
+  # Frontend - Next.js
+  # ==========================================
+  frontend:
+    image: ${REGISTRY:-ghcr.io/guircosta}/metamanager-frontend:${TAG:-latest}
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres_postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-metamanager}
+      - NEXTAUTH_URL=https://${DOMAIN}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXT_PUBLIC_BACKEND_URL=https://api.${DOMAIN}
+      - BACKEND_API_URL=http://metamanager_backend:8000
+    networks:
+      - IdevaNet
+    deploy:
+      mode: replicated
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.metamanager-frontend.rule=Host(`${DOMAIN}`)"
+        - "traefik.http.routers.metamanager-frontend.entrypoints=websecure"
+        - "traefik.http.routers.metamanager-frontend.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.metamanager-frontend.loadbalancer.server.port=3000"
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+volumes:
+  backend_data:
+
+networks:
+  IdevaNet:
+    external: true
