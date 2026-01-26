@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    openai_vision_model: str = "gpt-4o"  # Modelo com suporte a visão
+    openai_whisper_model: str = "whisper-1"  # Modelo de transcrição
+
+    # Evolution API (WhatsApp)
+    evolution_api_url: str = ""  # Ex: https://evolution.seudominio.com
+    evolution_api_key: str = ""
+    evolution_instance: str = ""  # Nome da instância
+    evolution_webhook_secret: str = ""  # Secret para validar webhooks
 
     # Application
     frontend_url: str = "http://localhost:3000"

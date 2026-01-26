@@ -13,6 +13,7 @@ from app.api.sync import router as sync_router
 from app.api.settings import router as settings_router
 from app.api.alerts import router as alerts_router
 from app.api.targeting import router as targeting_router
+from app.api.whatsapp import router as whatsapp_router
 
 settings = get_settings()
 
@@ -52,6 +53,7 @@ app.include_router(sync_router, prefix="/api/sync", tags=["sync"])
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 app.include_router(alerts_router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(targeting_router, prefix="/api/targeting", tags=["targeting"])
+app.include_router(whatsapp_router, prefix="/api/whatsapp", tags=["whatsapp"])
 
 
 @app.get("/")
