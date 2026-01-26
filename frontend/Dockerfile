@@ -14,6 +14,10 @@ COPY . .
 # Gerar cliente Prisma
 RUN npx prisma generate
 
+# Argumentos de build para variáveis NEXT_PUBLIC_*
+ARG NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+
 # Build da aplicação
 RUN npm run build
 
