@@ -233,14 +233,20 @@ class MetaAPI:
         """Arquiva uma campanha (soft delete)."""
         return await self.update_campaign(campaign_id, {"status": "ARCHIVED"})
 
-    async def get_ad_sets(self, campaign_id: str) -> list[dict]:
+    async def get_ad_sets(self, campaign_id: str, include_drafts: bool = True) -> list[dict]:
         """Lista ad sets de uma campanha."""
+        params = {
+            "fields": "id,name,status,effective_status,daily_budget,lifetime_budget,billing_event,optimization_goal,targeting,promoted_object,created_time,updated_time"
+        }
+
+        # Incluir todos os status, incluindo DRAFT
+        if include_drafts:
+            params["filtering"] = '[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED","DRAFT","PENDING_REVIEW","DISAPPROVED","PREAPPROVED","PENDING_BILLING_INFO","CAMPAIGN_PAUSED","ARCHIVED","ADSET_PAUSED","IN_PROCESS","WITH_ISSUES"]}]'
+
         result = await self._request(
             "GET",
             f"{campaign_id}/adsets",
-            params={
-                "fields": "id,name,status,daily_budget,lifetime_budget,billing_event,optimization_goal,targeting,promoted_object,created_time,updated_time"
-            },
+            params=params,
         )
         return result.get("data", [])
 
@@ -323,14 +329,20 @@ class MetaAPI:
         result = await self._request("POST", ad_set_id, data=update_data)
         return result
 
-    async def get_ads(self, ad_set_id: str) -> list[dict]:
+    async def get_ads(self, ad_set_id: str, include_drafts: bool = True) -> list[dict]:
         """Lista ads de um ad set com detalhes do criativo."""
+        params = {
+            "fields": "id,name,status,effective_status,created_time,updated_time,creative{id,name,object_type,thumbnail_url,image_url,video_id,object_story_spec}"
+        }
+
+        # Incluir todos os status, incluindo DRAFT
+        if include_drafts:
+            params["filtering"] = '[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED","DRAFT","PENDING_REVIEW","DISAPPROVED","PREAPPROVED","PENDING_BILLING_INFO","CAMPAIGN_PAUSED","ARCHIVED","ADSET_PAUSED","IN_PROCESS","WITH_ISSUES"]}]'
+
         result = await self._request(
             "GET",
             f"{ad_set_id}/ads",
-            params={
-                "fields": "id,name,status,effective_status,created_time,updated_time,creative{id,name,object_type,thumbnail_url,image_url,video_id,object_story_spec}"
-            },
+            params=params,
         )
         return result.get("data", [])
 

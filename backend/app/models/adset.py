@@ -39,6 +39,7 @@ class AdSetResponse(BaseModel):
     id: str
     name: str
     status: str
+    effective_status: Optional[str] = None
     daily_budget: Optional[str] = None
     targeting: Optional[dict] = None
     created_time: Optional[str] = None

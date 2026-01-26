@@ -364,6 +364,7 @@ async def get_campaign_ad_sets(campaign_id: str):
                     id=ad_set["id"],
                     name=ad_set["name"],
                     status=ad_set.get("status", "UNKNOWN"),
+                    effective_status=ad_set.get("effective_status"),
                     daily_budget=ad_set.get("daily_budget"),
                     targeting=ad_set.get("targeting"),
                     created_time=ad_set.get("created_time"),
