@@ -41,3 +41,6 @@ prisma/*.db-journal
 *.egg-info/
 .eggs/
 *.egg
+
+# Documentação original
+DOCUMENTACAO_COMPLETA/

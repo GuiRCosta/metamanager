@@ -14,6 +14,7 @@ from app.api.settings import router as settings_router
 from app.api.alerts import router as alerts_router
 from app.api.targeting import router as targeting_router
 from app.api.whatsapp import router as whatsapp_router
+from app.services.whatsapp_scheduler import get_whatsapp_scheduler
 
 settings = get_settings()
 
@@ -24,8 +25,17 @@ limiter = Limiter(key_func=get_remote_address)
 async def lifespan(app: FastAPI):
     # Startup
     print("Starting Meta Campaign Manager API...")
+
+    # Iniciar scheduler de mensagens WhatsApp
+    scheduler = get_whatsapp_scheduler()
+    scheduler.start()
+    print("WhatsApp Scheduler started")
+
     yield
+
     # Shutdown
+    scheduler.stop()
+    print("WhatsApp Scheduler stopped")
     print("Shutting down Meta Campaign Manager API...")
 
 

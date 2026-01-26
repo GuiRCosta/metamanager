@@ -779,3 +779,43 @@ export const analyticsApi = {
     })
   },
 }
+
+// ========================================
+// WhatsApp API
+// ========================================
+
+export interface WhatsAppSchedulerStatus {
+  enabled: boolean
+  scheduler_running: boolean
+  daily_reports_enabled: boolean
+  report_time: string
+  immediate_alerts_enabled: boolean
+  allowed_numbers_count: number
+  budget_alerts: {
+    alert_50?: boolean
+    alert_80?: boolean
+    alert_100?: boolean
+    projection_excess?: boolean
+  }
+}
+
+export interface WhatsAppTestResponse {
+  success: boolean
+  message: string
+}
+
+export const whatsappApi = {
+  getSchedulerStatus: () =>
+    fetchApi<WhatsAppSchedulerStatus>("/api/whatsapp/scheduler-status"),
+
+  sendTestMessage: (phoneNumber: string) =>
+    fetchApi<WhatsAppTestResponse>("/api/whatsapp/test-message", {
+      method: "POST",
+      body: JSON.stringify({ phone_number: phoneNumber }),
+    }),
+
+  sendReportNow: () =>
+    fetchApi<WhatsAppTestResponse>("/api/whatsapp/send-report", {
+      method: "POST",
+    }),
+}

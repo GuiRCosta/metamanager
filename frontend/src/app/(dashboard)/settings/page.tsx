@@ -12,12 +12,14 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import {
   settingsApi,
+  whatsappApi,
   type Settings,
   type BudgetSettings,
   type MetaApiSettings,
   type NotificationSettings,
   type GoalsSettings,
   type EvolutionSettings,
+  type WhatsAppSchedulerStatus,
 } from "@/lib/api"
 
 export default function SettingsPage() {
@@ -27,6 +29,10 @@ export default function SettingsPage() {
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [saveMessage, setSaveMessage] = useState<{ success: boolean; message: string } | null>(null)
   const [newNumber, setNewNumber] = useState("")
+  const [isTestingWhatsApp, setIsTestingWhatsApp] = useState(false)
+  const [isSendingReport, setIsSendingReport] = useState(false)
+  const [whatsappTestResult, setWhatsappTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [schedulerStatus, setSchedulerStatus] = useState<WhatsAppSchedulerStatus | null>(null)
 
   // Settings state
   const [budget, setBudget] = useState<BudgetSettings>({
@@ -87,6 +93,19 @@ export default function SettingsPage() {
       }
     }
     loadSettings()
+  }, [])
+
+  // Load scheduler status
+  useEffect(() => {
+    const loadSchedulerStatus = async () => {
+      try {
+        const status = await whatsappApi.getSchedulerStatus()
+        setSchedulerStatus(status)
+      } catch (error) {
+        console.error("Erro ao carregar status do scheduler:", error)
+      }
+    }
+    loadSchedulerStatus()
   }, [])
 
   const handleSave = async () => {
@@ -152,6 +171,32 @@ export default function SettingsPage() {
       return `(${phone.slice(0, 2)}) ${phone.slice(2, 7)}-${phone.slice(7)}`
     }
     return phone
+  }
+
+  const handleTestWhatsApp = async (phoneNumber: string) => {
+    setIsTestingWhatsApp(true)
+    setWhatsappTestResult(null)
+    try {
+      const result = await whatsappApi.sendTestMessage(phoneNumber)
+      setWhatsappTestResult(result)
+    } catch (error) {
+      setWhatsappTestResult({ success: false, message: "Erro ao enviar mensagem de teste" })
+    } finally {
+      setIsTestingWhatsApp(false)
+    }
+  }
+
+  const handleSendReportNow = async () => {
+    setIsSendingReport(true)
+    setWhatsappTestResult(null)
+    try {
+      const result = await whatsappApi.sendReportNow()
+      setWhatsappTestResult(result)
+    } catch (error) {
+      setWhatsappTestResult({ success: false, message: "Erro ao enviar relatório" })
+    } finally {
+      setIsSendingReport(false)
+    }
   }
 
   if (isLoading) {
@@ -513,6 +558,97 @@ export default function SettingsPage() {
                 {evolution.allowed_numbers.length === 0 && (
                   <p className="text-sm text-muted-foreground italic">
                     Nenhum número adicionado. Todos os números poderão interagir.
+                  </p>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium">Testar Integração</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Envie uma mensagem de teste ou relatório para verificar a configuração
+                  </p>
+                </div>
+
+                {schedulerStatus && (
+                  <div className="rounded-lg border p-4 bg-muted/50">
+                    <div className="grid gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Status do Scheduler:</span>
+                        <Badge variant={schedulerStatus.scheduler_running ? "default" : "secondary"}>
+                          {schedulerStatus.scheduler_running ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Relatório Diário:</span>
+                        <span>{schedulerStatus.daily_reports_enabled ? `Ativo (${schedulerStatus.report_time})` : "Desativado"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Alertas Imediatos:</span>
+                        <span>{schedulerStatus.immediate_alerts_enabled ? "Ativados" : "Desativados"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Números Configurados:</span>
+                        <span>{schedulerStatus.allowed_numbers_count}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {evolution.allowed_numbers.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleTestWhatsApp(evolution.allowed_numbers[0])}
+                      disabled={isTestingWhatsApp || !evolution.enabled}
+                    >
+                      {isTestingWhatsApp ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Enviando...
+                        </>
+                      ) : (
+                        "Enviar Mensagem de Teste"
+                      )}
+                    </Button>
+                  )}
+
+                  <Button
+                    variant="outline"
+                    onClick={handleSendReportNow}
+                    disabled={isSendingReport || !evolution.enabled || evolution.allowed_numbers.length === 0}
+                  >
+                    {isSendingReport ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      "Enviar Relatório Agora"
+                    )}
+                  </Button>
+                </div>
+
+                {whatsappTestResult && (
+                  <div
+                    className={`flex items-center gap-2 text-sm ${
+                      whatsappTestResult.success ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {whatsappTestResult.success ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <XCircle className="h-4 w-4" />
+                    )}
+                    {whatsappTestResult.message}
+                  </div>
+                )}
+
+                {!evolution.enabled && (
+                  <p className="text-sm text-amber-600">
+                    Habilite o WhatsApp acima para testar a integração.
                   </p>
                 )}
               </div>

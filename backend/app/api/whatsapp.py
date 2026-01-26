@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.config import get_settings
 from app.models.whatsapp import WebhookEvent
 from app.services.whatsapp_handler import get_whatsapp_handler
+from app.services.whatsapp_scheduler import get_whatsapp_scheduler
 
 settings = get_settings()
 router = APIRouter()
@@ -176,4 +177,62 @@ async def health_check():
         "evolution_api_url": settings.evolution_api_url[:30] + "..." if settings.evolution_api_url else None,
         "instance": settings.evolution_instance or None,
         "configured": config_ok,
+    }
+
+
+class TestMessageRequest(BaseModel):
+    """Request para enviar mensagem de teste."""
+    phone_number: str
+
+
+@router.post("/test-message")
+async def send_test_message(request: TestMessageRequest):
+    """
+    Envia mensagem de teste para verificar integração.
+    """
+    scheduler = get_whatsapp_scheduler()
+    result = await scheduler.send_test_message(request.phone_number)
+    return result
+
+
+@router.post("/send-report")
+async def send_report_now():
+    """
+    Envia relatório diário imediatamente para todos os números configurados.
+    """
+    scheduler = get_whatsapp_scheduler()
+    result = await scheduler.send_report_now()
+    return result
+
+
+@router.get("/scheduler-status")
+async def get_scheduler_status():
+    """
+    Retorna status do scheduler de mensagens automáticas.
+    """
+    import json
+    from pathlib import Path
+
+    settings_file = Path(__file__).parent.parent.parent / "data" / "settings.json"
+
+    if settings_file.exists():
+        with open(settings_file, "r", encoding="utf-8") as f:
+            settings_data = json.load(f)
+    else:
+        settings_data = {}
+
+    evolution = settings_data.get("evolution", {})
+    notifications = settings_data.get("notifications", {})
+    budget = settings_data.get("budget", {})
+
+    scheduler = get_whatsapp_scheduler()
+
+    return {
+        "enabled": evolution.get("enabled", False),
+        "scheduler_running": scheduler._started,
+        "daily_reports_enabled": notifications.get("daily_reports", True),
+        "report_time": notifications.get("report_time", "09:00"),
+        "immediate_alerts_enabled": notifications.get("immediate_alerts", True),
+        "allowed_numbers_count": len(evolution.get("allowed_numbers", [])),
+        "budget_alerts": budget.get("alerts", {}),
     }
