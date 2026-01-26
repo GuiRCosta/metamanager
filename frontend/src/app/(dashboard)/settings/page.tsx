@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Save, Key, Bell, Target, Loader2, CheckCircle, XCircle } from "lucide-react"
+import { Save, Key, Bell, Target, Loader2, CheckCircle, XCircle, MessageCircle, Plus, X } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 import {
   settingsApi,
   type Settings,
@@ -16,6 +17,7 @@ import {
   type MetaApiSettings,
   type NotificationSettings,
   type GoalsSettings,
+  type EvolutionSettings,
 } from "@/lib/api"
 
 export default function SettingsPage() {
@@ -24,6 +26,7 @@ export default function SettingsPage() {
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [saveMessage, setSaveMessage] = useState<{ success: boolean; message: string } | null>(null)
+  const [newNumber, setNewNumber] = useState("")
 
   // Settings state
   const [budget, setBudget] = useState<BudgetSettings>({
@@ -56,6 +59,15 @@ export default function SettingsPage() {
     ctr_min: undefined,
   })
 
+  const [evolution, setEvolution] = useState<EvolutionSettings>({
+    api_url: "",
+    api_key: "",
+    instance: "",
+    webhook_secret: "",
+    enabled: false,
+    allowed_numbers: [],
+  })
+
   // Load settings on mount
   useEffect(() => {
     const loadSettings = async () => {
@@ -65,6 +77,9 @@ export default function SettingsPage() {
         setMetaApi(settings.meta_api)
         setNotifications(settings.notifications)
         setGoals(settings.goals)
+        if (settings.evolution) {
+          setEvolution(settings.evolution)
+        }
       } catch (error) {
         console.error("Erro ao carregar configurações:", error)
       } finally {
@@ -83,6 +98,7 @@ export default function SettingsPage() {
         meta_api: metaApi,
         notifications,
         goals,
+        evolution,
       })
       setSaveMessage({ success: true, message: "Configurações salvas com sucesso!" })
       setTimeout(() => setSaveMessage(null), 3000)
@@ -109,6 +125,35 @@ export default function SettingsPage() {
     }
   }
 
+  const handleAddNumber = () => {
+    if (!newNumber.trim()) return
+    const cleanNumber = newNumber.replace(/\D/g, "")
+    if (cleanNumber && !evolution.allowed_numbers.includes(cleanNumber)) {
+      setEvolution((prev) => ({
+        ...prev,
+        allowed_numbers: [...prev.allowed_numbers, cleanNumber],
+      }))
+    }
+    setNewNumber("")
+  }
+
+  const handleRemoveNumber = (number: string) => {
+    setEvolution((prev) => ({
+      ...prev,
+      allowed_numbers: prev.allowed_numbers.filter((n) => n !== number),
+    }))
+  }
+
+  const formatPhoneDisplay = (phone: string) => {
+    if (phone.length === 13) {
+      return `+${phone.slice(0, 2)} (${phone.slice(2, 4)}) ${phone.slice(4, 9)}-${phone.slice(9)}`
+    }
+    if (phone.length === 11) {
+      return `(${phone.slice(0, 2)}) ${phone.slice(2, 7)}-${phone.slice(7)}`
+    }
+    return phone
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -130,6 +175,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="budget">Orçamento</TabsTrigger>
           <TabsTrigger value="meta">Meta API</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="notifications">Notificações</TabsTrigger>
           <TabsTrigger value="goals">Metas</TabsTrigger>
         </TabsList>
@@ -329,6 +375,145 @@ export default function SettingsPage() {
                     )}
                     {testResult.message}
                   </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="whatsapp">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                Integração WhatsApp (Evolution API)
+              </CardTitle>
+              <CardDescription>
+                Configure o acesso ao agente via WhatsApp
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div>
+                  <p className="font-medium">Habilitar WhatsApp</p>
+                  <p className="text-sm text-muted-foreground">
+                    Ative para permitir acesso ao agente via WhatsApp
+                  </p>
+                </div>
+                <Switch
+                  checked={evolution.enabled}
+                  onCheckedChange={(checked) =>
+                    setEvolution((prev) => ({ ...prev, enabled: checked }))
+                  }
+                />
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h4 className="font-medium">Credenciais da Evolution API</h4>
+
+                <div className="space-y-2">
+                  <Label htmlFor="evolutionUrl">URL da API</Label>
+                  <Input
+                    id="evolutionUrl"
+                    placeholder="https://evolution.seudominio.com"
+                    value={evolution.api_url || ""}
+                    onChange={(e) =>
+                      setEvolution((prev) => ({ ...prev, api_url: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="evolutionKey">API Key</Label>
+                  <Input
+                    id="evolutionKey"
+                    type="password"
+                    placeholder="sua-api-key"
+                    value={evolution.api_key || ""}
+                    onChange={(e) =>
+                      setEvolution((prev) => ({ ...prev, api_key: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="evolutionInstance">Nome da Instância</Label>
+                  <Input
+                    id="evolutionInstance"
+                    placeholder="minha-instancia"
+                    value={evolution.instance || ""}
+                    onChange={(e) =>
+                      setEvolution((prev) => ({ ...prev, instance: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="webhookSecret">Webhook Secret (opcional)</Label>
+                  <Input
+                    id="webhookSecret"
+                    type="password"
+                    placeholder="secret-para-validar-webhooks"
+                    value={evolution.webhook_secret || ""}
+                    onChange={(e) =>
+                      setEvolution((prev) => ({ ...prev, webhook_secret: e.target.value }))
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Configure na Evolution: Webhook URL = {typeof window !== "undefined" ? window.location.origin.replace(":3000", ":8000") : "http://localhost:8000"}/api/whatsapp/webhook
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium">Números Permitidos</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Apenas estes números poderão interagir com o agente. Deixe vazio para permitir todos.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="5511999999999"
+                    value={newNumber}
+                    onChange={(e) => setNewNumber(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleAddNumber()
+                      }
+                    }}
+                  />
+                  <Button variant="outline" onClick={handleAddNumber}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {evolution.allowed_numbers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {evolution.allowed_numbers.map((number) => (
+                      <Badge key={number} variant="secondary" className="gap-1 pr-1">
+                        {formatPhoneDisplay(number)}
+                        <button
+                          onClick={() => handleRemoveNumber(number)}
+                          className="ml-1 rounded-full p-0.5 hover:bg-muted"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {evolution.allowed_numbers.length === 0 && (
+                  <p className="text-sm text-muted-foreground italic">
+                    Nenhum número adicionado. Todos os números poderão interagir.
+                  </p>
                 )}
               </div>
             </CardContent>

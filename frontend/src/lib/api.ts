@@ -543,11 +543,21 @@ export interface GoalsSettings {
   ctr_min?: number
 }
 
+export interface EvolutionSettings {
+  api_url?: string
+  api_key?: string
+  instance?: string
+  webhook_secret?: string
+  enabled: boolean
+  allowed_numbers: string[]
+}
+
 export interface Settings {
   budget: BudgetSettings
   meta_api: MetaApiSettings
   notifications: NotificationSettings
   goals: GoalsSettings
+  evolution: EvolutionSettings
 }
 
 export interface SettingsUpdate {
@@ -555,6 +565,7 @@ export interface SettingsUpdate {
   meta_api?: MetaApiSettings
   notifications?: NotificationSettings
   goals?: GoalsSettings
+  evolution?: EvolutionSettings
 }
 
 export interface TestConnectionResponse {

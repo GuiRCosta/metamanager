@@ -3,7 +3,9 @@ Handler de mensagens do WhatsApp.
 Coordena o processamento de mídia e integração com o orquestrador de agentes.
 """
 
+import json
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 from app.config import get_settings
 from app.models.whatsapp import WebhookEvent, MessageType, ConversationContext
@@ -12,6 +14,18 @@ from app.services.evolution_client import get_evolution_client
 from app.skills.orchestrator import CampaignOrchestrator
 
 settings = get_settings()
+
+# Caminho para o arquivo de configurações
+SETTINGS_FILE = Path(__file__).parent.parent.parent / "data" / "settings.json"
+
+
+def load_evolution_settings() -> dict:
+    """Carrega configurações da Evolution API do arquivo."""
+    if SETTINGS_FILE.exists():
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data.get("evolution", {})
+    return {}
 
 
 class WhatsAppHandler:
@@ -24,6 +38,39 @@ class WhatsAppHandler:
 
         # Cache de conversas (em produção, usar Redis ou banco de dados)
         self._conversations: dict[str, ConversationContext] = {}
+
+    def _normalize_phone(self, phone: str) -> str:
+        """Normaliza número de telefone removendo caracteres especiais."""
+        return "".join(filter(str.isdigit, phone))
+
+    def _is_number_allowed(self, phone_number: str) -> bool:
+        """
+        Verifica se o número está na lista de permitidos.
+        Se a lista estiver vazia, permite todos.
+        """
+        evolution_settings = load_evolution_settings()
+
+        # Se não está habilitado, não processa
+        if not evolution_settings.get("enabled", False):
+            return False
+
+        allowed_numbers = evolution_settings.get("allowed_numbers", [])
+
+        # Se lista vazia, permite todos
+        if not allowed_numbers:
+            return True
+
+        # Normalizar número recebido
+        normalized_phone = self._normalize_phone(phone_number)
+
+        # Verificar se está na lista (comparando apenas dígitos)
+        for allowed in allowed_numbers:
+            normalized_allowed = self._normalize_phone(allowed)
+            # Comparar os últimos dígitos (ignora código do país se não fornecido)
+            if normalized_phone.endswith(normalized_allowed) or normalized_allowed.endswith(normalized_phone):
+                return True
+
+        return False
 
     def _get_conversation(self, phone_number: str) -> ConversationContext:
         """Obtém ou cria contexto de conversa."""
@@ -136,6 +183,10 @@ class WhatsAppHandler:
         phone_number = self._extract_phone_number(key.get("remoteJid", ""))
         if not phone_number:
             return {"processed": False, "reason": "No phone number"}
+
+        # Verificar se o número está permitido
+        if not self._is_number_allowed(phone_number):
+            return {"processed": False, "reason": "Number not allowed"}
 
         # Processar a mensagem
         return await self.process_message(

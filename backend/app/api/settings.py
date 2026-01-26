@@ -58,6 +58,8 @@ async def update_settings(updates: SettingsUpdate):
         current.notifications = updates.notifications
     if updates.goals is not None:
         current.goals = updates.goals
+    if updates.evolution is not None:
+        current.evolution = updates.evolution
 
     save_settings(current)
     return current

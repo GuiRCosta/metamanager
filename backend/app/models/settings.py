@@ -34,11 +34,22 @@ class GoalsSettings(BaseModel):
     ctr_min: Optional[float] = None
 
 
+class EvolutionSettings(BaseModel):
+    """Configurações da Evolution API (WhatsApp)."""
+    api_url: Optional[str] = None
+    api_key: Optional[str] = None
+    instance: Optional[str] = None
+    webhook_secret: Optional[str] = None
+    enabled: bool = False
+    allowed_numbers: list[str] = Field(default_factory=list)  # Números permitidos
+
+
 class Settings(BaseModel):
     budget: BudgetSettings = Field(default_factory=BudgetSettings)
     meta_api: MetaApiSettings = Field(default_factory=MetaApiSettings)
     notifications: NotificationSettings = Field(default_factory=NotificationSettings)
     goals: GoalsSettings = Field(default_factory=GoalsSettings)
+    evolution: EvolutionSettings = Field(default_factory=EvolutionSettings)
 
 
 class SettingsUpdate(BaseModel):
@@ -46,6 +57,7 @@ class SettingsUpdate(BaseModel):
     meta_api: Optional[MetaApiSettings] = None
     notifications: Optional[NotificationSettings] = None
     goals: Optional[GoalsSettings] = None
+    evolution: Optional[EvolutionSettings] = None
 
 
 class TestConnectionResponse(BaseModel):
