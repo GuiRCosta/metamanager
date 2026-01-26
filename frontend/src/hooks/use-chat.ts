@@ -25,14 +25,26 @@ export function useChat(options?: UseChatOptions) {
         timestamp: new Date(),
       }
 
-      setMessages((prev) => [...prev, userMessage])
+      // Atualizar mensagens e capturar histórico para enviar
+      const updatedMessages = [...messages, userMessage]
+      setMessages(updatedMessages)
       setIsLoading(true)
+
+      // Preparar histórico das últimas mensagens (excluindo a atual)
+      const history = messages.slice(-10).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }))
 
       try {
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: content, context }),
+          body: JSON.stringify({
+            message: content,
+            ad_account_id: context?.ad_account_id,
+            context: { history },
+          }),
         })
 
         if (!response.ok) {

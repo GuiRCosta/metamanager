@@ -11,9 +11,20 @@ orchestrator = CampaignOrchestrator()
 async def chat_with_agent(request: ChatRequest):
     """Envia uma mensagem para o agente de IA."""
     try:
+        # Extrair ad_account_id do contexto ou do campo direto
+        ad_account_id = request.ad_account_id
+        if not ad_account_id and request.context:
+            ad_account_id = request.context.ad_account_id
+
+        # Extrair histórico de mensagens
+        history = None
+        if request.context and request.context.history:
+            history = request.context.history
+
         result = await orchestrator.process_message(
             message=request.message,
-            context=request.context,
+            ad_account_id=ad_account_id,
+            history=history,
         )
 
         return ChatResponse(

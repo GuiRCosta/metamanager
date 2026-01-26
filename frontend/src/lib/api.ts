@@ -326,10 +326,14 @@ export interface ChatResponse {
 }
 
 export const agentApi = {
-  chat: (message: string, context?: Record<string, unknown>) =>
+  chat: (message: string, adAccountId?: string, history?: Array<{ role: string; content: string }>) =>
     fetchApi<ChatResponse>("/api/agent/chat", {
       method: "POST",
-      body: JSON.stringify({ message, context }),
+      body: JSON.stringify({
+        message,
+        ad_account_id: adAccountId,
+        context: history ? { history } : undefined,
+      }),
     }),
 }
 

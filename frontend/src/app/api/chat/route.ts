@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { message } = body
+    const { message, ad_account_id, context } = body
 
     if (!message) {
       return NextResponse.json(
@@ -28,7 +28,9 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         message,
+        ad_account_id,
         context: {
+          ...context,
           user_id: session.user?.id,
         },
       }),

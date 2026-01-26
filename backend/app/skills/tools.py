@@ -4,13 +4,56 @@ Cada função é uma tool que pode ser usada pelos agentes Agno.
 """
 
 import json
+from contextvars import ContextVar
 from typing import Optional
 from app.tools.meta_api import MetaAPI
 
+# Context variable para armazenar ad_account_id atual
+_current_ad_account_id: ContextVar[Optional[str]] = ContextVar("ad_account_id", default=None)
+
+
+# Mapeamento de erros comuns da Meta API para mensagens amigáveis
+ERROR_MESSAGES = {
+    "OAuthException": "Erro de autenticação. Verifique se o token de acesso está válido.",
+    "rate limit": "Limite de requisições atingido. Aguarde alguns minutos.",
+    "(#100)": "Parâmetro inválido na requisição.",
+    "(#200)": "Permissão negada. Verifique as permissões do app.",
+    "(#270)": "Essa ação requer permissão de Business Manager.",
+    "(#294)": "Gerenciamento de anúncios não permitido para esta conta.",
+    "(#1487390)": "Conta de anúncios desabilitada.",
+    "(#2446)": "Campanha não encontrada ou sem permissão.",
+    "connection": "Erro de conexão com a API do Meta. Tente novamente.",
+    "timeout": "A requisição demorou muito. Tente novamente.",
+}
+
+
+def format_error(error: Exception) -> str:
+    """Formata erro para mensagem amigável."""
+    error_str = str(error).lower()
+
+    for key, message in ERROR_MESSAGES.items():
+        if key.lower() in error_str:
+            return message
+
+    # Erro genérico com detalhes
+    return f"Erro ao processar: {str(error)}"
+
+
+def set_current_ad_account(ad_account_id: Optional[str]):
+    """Define a conta de anúncios atual para as tools."""
+    _current_ad_account_id.set(ad_account_id)
+
+
+def get_current_ad_account() -> Optional[str]:
+    """Obtém a conta de anúncios atual."""
+    return _current_ad_account_id.get()
+
 
 def get_meta_api(ad_account_id: Optional[str] = None) -> MetaAPI:
-    """Retorna instância do MetaAPI."""
-    return MetaAPI(ad_account_id=ad_account_id)
+    """Retorna instância do MetaAPI usando contexto atual se não especificado."""
+    # Usa ad_account_id do contexto se não foi passado explicitamente
+    account_id = ad_account_id or get_current_ad_account()
+    return MetaAPI(ad_account_id=account_id)
 
 
 # ============================================
@@ -52,9 +95,10 @@ async def create_campaign(
             "name": campaign.get("name"),
             "objective": campaign.get("objective"),
             "status": campaign.get("status"),
+            "message": f"Campanha '{name}' criada com sucesso!",
         }, ensure_ascii=False)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+        return json.dumps({"success": False, "error": format_error(e)}, ensure_ascii=False)
 
 
 async def create_ad_set(
@@ -222,17 +266,36 @@ async def update_campaign_status(campaign_id: str, status: str) -> str:
     Returns:
         JSON com resultado da operação
     """
+    # Validar status
+    valid_statuses = ["ACTIVE", "PAUSED", "ARCHIVED"]
+    if status.upper() not in valid_statuses:
+        return json.dumps({
+            "success": False,
+            "error": f"Status inválido. Use: {', '.join(valid_statuses)}",
+        }, ensure_ascii=False)
+
     try:
         meta_api = get_meta_api()
-        await meta_api.update_campaign(campaign_id, {"status": status})
+        # Buscar nome da campanha para feedback
+        campaign = await meta_api.get_campaign(campaign_id)
+        campaign_name = campaign.get("name", campaign_id)
+
+        await meta_api.update_campaign(campaign_id, {"status": status.upper()})
+
+        status_labels = {
+            "ACTIVE": "ativada",
+            "PAUSED": "pausada",
+            "ARCHIVED": "arquivada",
+        }
         return json.dumps({
             "success": True,
             "campaign_id": campaign_id,
-            "new_status": status,
-            "message": f"Campanha {'ativada' if status == 'ACTIVE' else 'pausada' if status == 'PAUSED' else 'arquivada'} com sucesso",
+            "campaign_name": campaign_name,
+            "new_status": status.upper(),
+            "message": f"Campanha '{campaign_name}' {status_labels[status.upper()]} com sucesso!",
         }, ensure_ascii=False)
     except Exception as e:
-        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+        return json.dumps({"success": False, "error": format_error(e)}, ensure_ascii=False)
 
 
 async def update_campaign_budget(campaign_id: str, daily_budget: float) -> str:
@@ -826,3 +889,263 @@ async def get_account_limits_report() -> str:
         }, ensure_ascii=False)
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+
+# ============================================
+# Creative Manager Tools
+# ============================================
+
+
+async def list_creatives(limit: int = 20) -> str:
+    """
+    Lista criativos disponíveis na conta.
+
+    Args:
+        limit: Número máximo de criativos a retornar (1-50)
+
+    Returns:
+        JSON com lista de criativos
+    """
+    try:
+        meta_api = get_meta_api()
+        creatives = await meta_api.get_creatives(min(limit, 50))
+
+        result = []
+        for creative in creatives:
+            result.append({
+                "id": creative.get("id"),
+                "name": creative.get("name"),
+                "status": creative.get("status"),
+                "thumbnail_url": creative.get("thumbnail_url"),
+                "object_type": creative.get("object_type"),
+            })
+
+        return json.dumps({
+            "success": True,
+            "creatives": result,
+            "total": len(result),
+        }, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+
+
+def get_creative_specs(format_type: str) -> str:
+    """
+    Retorna especificações técnicas para um formato de anúncio.
+
+    Args:
+        format_type: Tipo de formato (feed_image, feed_video, stories, carousel, reels)
+
+    Returns:
+        JSON com especificações do formato
+    """
+    specs = {
+        "feed_image": {
+            "name": "Imagem no Feed",
+            "aspect_ratios": ["1:1", "4:5", "1.91:1"],
+            "recommended_size": "1080x1080 (1:1) ou 1080x1350 (4:5)",
+            "max_file_size": "30MB",
+            "formats": ["JPG", "PNG"],
+            "text_limits": {
+                "primary_text": 125,
+                "headline": 40,
+                "description": 30,
+            },
+            "tips": [
+                "Use menos de 20% de texto na imagem",
+                "Alta resolução para melhor qualidade",
+                "Cores vibrantes chamam mais atenção",
+            ],
+        },
+        "feed_video": {
+            "name": "Vídeo no Feed",
+            "aspect_ratios": ["1:1", "4:5", "16:9"],
+            "recommended_size": "1080x1080 (1:1) ou 1080x1350 (4:5)",
+            "max_duration": "240 minutos",
+            "recommended_duration": "15-60 segundos",
+            "max_file_size": "4GB",
+            "formats": ["MP4", "MOV"],
+            "text_limits": {
+                "primary_text": 125,
+                "headline": 40,
+            },
+            "tips": [
+                "Capte atenção nos primeiros 3 segundos",
+                "Funcione com ou sem som",
+                "Inclua legendas",
+            ],
+        },
+        "stories": {
+            "name": "Stories/Reels",
+            "aspect_ratios": ["9:16"],
+            "recommended_size": "1080x1920",
+            "max_duration": "60 segundos (Stories), 90 segundos (Reels)",
+            "max_file_size": "4GB",
+            "formats": ["MP4", "MOV", "JPG", "PNG"],
+            "safe_zones": {
+                "top": "250px (ícone do perfil)",
+                "bottom": "340px (CTA e interações)",
+            },
+            "tips": [
+                "Formato vertical obrigatório",
+                "Evite texto nas bordas",
+                "Use movimento e dinamismo",
+            ],
+        },
+        "carousel": {
+            "name": "Carrossel",
+            "cards": "2-10 cards",
+            "aspect_ratios": ["1:1", "1.91:1"],
+            "recommended_size": "1080x1080",
+            "formats": ["JPG", "PNG", "MP4", "MOV"],
+            "text_limits": {
+                "primary_text": 125,
+                "headline_per_card": 40,
+                "description_per_card": 20,
+            },
+            "tips": [
+                "Conte uma história entre os cards",
+                "Primeiro card mais impactante",
+                "Mantenha consistência visual",
+            ],
+        },
+        "reels": {
+            "name": "Reels",
+            "aspect_ratios": ["9:16"],
+            "recommended_size": "1080x1920",
+            "max_duration": "90 segundos",
+            "max_file_size": "4GB",
+            "formats": ["MP4", "MOV"],
+            "tips": [
+                "Use áudio trending quando possível",
+                "Formato nativo performa melhor",
+                "Primeiros segundos são cruciais",
+            ],
+        },
+    }
+
+    format_type = format_type.lower().replace(" ", "_")
+    if format_type not in specs:
+        return json.dumps({
+            "success": False,
+            "error": f"Formato '{format_type}' não encontrado. Opções: {', '.join(specs.keys())}",
+        }, ensure_ascii=False)
+
+    return json.dumps({
+        "success": True,
+        "format": format_type,
+        "specifications": specs[format_type],
+    }, ensure_ascii=False)
+
+
+def get_creative_best_practices(objective: str) -> str:
+    """
+    Retorna melhores práticas de criativos por objetivo de campanha.
+
+    Args:
+        objective: Objetivo da campanha (awareness, traffic, engagement, leads, sales)
+
+    Returns:
+        JSON com melhores práticas
+    """
+    practices = {
+        "awareness": {
+            "objective": "Reconhecimento de Marca",
+            "recommended_formats": ["Vídeo", "Carrossel", "Stories"],
+            "video_tips": [
+                "Mostre a marca nos primeiros 3 segundos",
+                "Use cores e elementos da identidade visual",
+                "Duração ideal: 6-15 segundos",
+            ],
+            "image_tips": [
+                "Logo visível mas não dominante",
+                "Mensagem clara e memorável",
+                "Evite muito texto",
+            ],
+            "cta_suggestions": ["Saiba mais", "Conheça"],
+        },
+        "traffic": {
+            "objective": "Tráfego",
+            "recommended_formats": ["Imagem", "Vídeo curto", "Carrossel"],
+            "video_tips": [
+                "Mostre o destino (site/app)",
+                "Inclua preview do conteúdo",
+                "Duração: 15-30 segundos",
+            ],
+            "image_tips": [
+                "CTA claro e visível",
+                "Indique o que o usuário encontrará",
+                "Use setas ou indicadores visuais",
+            ],
+            "cta_suggestions": ["Saiba mais", "Ver mais", "Acesse agora"],
+        },
+        "engagement": {
+            "objective": "Engajamento",
+            "recommended_formats": ["Vídeo", "Carrossel interativo", "Enquetes"],
+            "video_tips": [
+                "Faça perguntas ao público",
+                "Conteúdo que gera reação",
+                "Incentive comentários",
+            ],
+            "image_tips": [
+                "Use perguntas no texto",
+                "Conteúdo compartilhável",
+                "Memes e humor (quando apropriado)",
+            ],
+            "cta_suggestions": ["Comente", "Compartilhe", "Marque um amigo"],
+        },
+        "leads": {
+            "objective": "Geração de Leads",
+            "recommended_formats": ["Imagem com formulário", "Vídeo explicativo", "Carrossel"],
+            "video_tips": [
+                "Explique o benefício de se cadastrar",
+                "Mostre depoimentos",
+                "Duração: 30-60 segundos",
+            ],
+            "image_tips": [
+                "Destaque a oferta/benefício",
+                "Mostre o que receberão",
+                "Crie urgência moderada",
+            ],
+            "cta_suggestions": ["Cadastre-se", "Baixe grátis", "Solicite orçamento"],
+        },
+        "sales": {
+            "objective": "Vendas/Conversões",
+            "recommended_formats": ["Carrossel de produtos", "Vídeo demonstrativo", "Coleção"],
+            "video_tips": [
+                "Demonstre o produto em uso",
+                "Mostre benefícios, não só features",
+                "Inclua preço e CTA claro",
+            ],
+            "image_tips": [
+                "Produto em destaque",
+                "Preço visível (quando vantajoso)",
+                "Fundo limpo e profissional",
+            ],
+            "cta_suggestions": ["Comprar agora", "Ver ofertas", "Adicionar ao carrinho"],
+        },
+    }
+
+    objective = objective.lower()
+    # Map ODAX objectives to simplified names
+    objective_map = {
+        "outcome_awareness": "awareness",
+        "outcome_traffic": "traffic",
+        "outcome_engagement": "engagement",
+        "outcome_leads": "leads",
+        "outcome_sales": "sales",
+        "outcome_app_promotion": "traffic",
+    }
+    objective = objective_map.get(objective, objective)
+
+    if objective not in practices:
+        return json.dumps({
+            "success": False,
+            "error": f"Objetivo '{objective}' não encontrado. Opções: {', '.join(practices.keys())}",
+        }, ensure_ascii=False)
+
+    return json.dumps({
+        "success": True,
+        "objective": objective,
+        "best_practices": practices[objective],
+    }, ensure_ascii=False)

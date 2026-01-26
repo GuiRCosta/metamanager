@@ -14,9 +14,16 @@ class ChatMessage(BaseModel):
     content: str
 
 
+class ChatContext(BaseModel):
+    """Contexto enviado junto com mensagens do chat."""
+    ad_account_id: Optional[str] = None
+    history: Optional[list[dict]] = None  # Histórico de mensagens anteriores
+
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
-    context: Optional[dict] = None
+    context: Optional[ChatContext] = None
+    ad_account_id: Optional[str] = None  # Atalho para contexto de conta
 
 
 class ChatResponse(BaseModel):

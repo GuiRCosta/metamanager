@@ -14,6 +14,7 @@ from app.skills.creative_manager import create_creative_manager_agent
 from app.skills.budget_optimizer import create_budget_optimizer_agent
 from app.skills.performance_analyzer import create_performance_analyzer_agent
 from app.skills.report_generator import create_report_generator_agent
+from app.skills.tools import set_current_ad_account
 
 settings = get_settings()
 
@@ -31,6 +32,14 @@ class CampaignOrchestrator:
     - Performance Analyzer: Análise de métricas
     - Report Generator: Geração de relatórios
     """
+
+    # Palavras-chave que indicam ações destrutivas que precisam confirmação
+    DESTRUCTIVE_KEYWORDS = [
+        "todas", "todos", "all", "tudo",
+        "pausar", "pause", "parar",
+        "arquivar", "archive", "deletar", "delete", "excluir",
+        "desativar", "disable",
+    ]
 
     # Palavras-chave para roteamento
     INTENT_KEYWORDS = {
@@ -98,6 +107,42 @@ class CampaignOrchestrator:
             if skill_name in skill_creators:
                 self._skills[skill_name] = skill_creators[skill_name]()
         return self._skills.get(skill_name)
+
+    def _requires_confirmation(self, message: str) -> tuple[bool, str]:
+        """
+        Verifica se a mensagem indica uma ação destrutiva que precisa confirmação.
+
+        Returns:
+            Tuple (requires_confirmation, warning_message)
+        """
+        message_lower = message.lower()
+
+        # Contar palavras destrutivas
+        destructive_count = sum(1 for kw in self.DESTRUCTIVE_KEYWORDS if kw in message_lower)
+
+        if destructive_count >= 2:
+            # Detectar tipo de ação
+            if any(w in message_lower for w in ["pausar", "pause", "parar"]):
+                if any(w in message_lower for w in ["todas", "todos", "all", "tudo"]):
+                    return True, "Você está prestes a PAUSAR múltiplas campanhas. Para confirmar, responda 'CONFIRMAR PAUSA'."
+
+            if any(w in message_lower for w in ["arquivar", "archive", "deletar", "delete", "excluir"]):
+                if any(w in message_lower for w in ["todas", "todos", "all", "tudo"]):
+                    return True, "Você está prestes a ARQUIVAR/EXCLUIR múltiplas campanhas. Esta ação é irreversível. Para confirmar, responda 'CONFIRMAR EXCLUSÃO'."
+
+            if any(w in message_lower for w in ["desativar", "disable"]):
+                return True, "Você está prestes a DESATIVAR campanhas. Para confirmar, responda 'CONFIRMAR DESATIVAÇÃO'."
+
+        return False, ""
+
+    def _is_confirmation(self, message: str) -> bool:
+        """Verifica se a mensagem é uma confirmação."""
+        message_lower = message.lower()
+        confirmations = [
+            "confirmar", "confirm", "sim", "yes",
+            "confirmar pausa", "confirmar exclusão", "confirmar desativação",
+        ]
+        return any(c in message_lower for c in confirmations)
 
     def _detect_intent(self, message: str) -> str:
         """Detecta a intenção da mensagem e retorna o skill apropriado."""
@@ -178,18 +223,38 @@ class CampaignOrchestrator:
     async def process_message(
         self,
         message: str,
-        context: Optional[dict] = None,
+        ad_account_id: Optional[str] = None,
+        history: Optional[list[dict]] = None,
     ) -> dict:
         """
         Processa uma mensagem do usuário roteando para o skill apropriado.
 
         Args:
             message: Mensagem do usuário
-            context: Contexto adicional (opcional)
+            ad_account_id: ID da conta de anúncios (opcional)
+            history: Histórico de mensagens anteriores (opcional)
 
         Returns:
             dict com response, agent_type e suggestions
         """
+        # Definir contexto da conta para as tools usarem
+        set_current_ad_account(ad_account_id)
+
+        # Verificar se é uma confirmação de ação pendente
+        is_confirmation = self._is_confirmation(message)
+
+        # Verificar se precisa de confirmação (exceto se já é uma confirmação)
+        if not is_confirmation:
+            requires_confirmation, warning_message = self._requires_confirmation(message)
+            if requires_confirmation:
+                return {
+                    "response": f"⚠️ **Ação Destrutiva Detectada**\n\n{warning_message}\n\nSe você não deseja prosseguir, apenas continue conversando normalmente.",
+                    "agent_type": "Confirmação Necessária",
+                    "suggestions": ["CONFIRMAR", "Cancelar", "Ver campanhas primeiro"],
+                    "requires_confirmation": True,
+                    "pending_action": message,
+                }
+
         # Detectar intenção
         intent = self._detect_intent(message)
 
@@ -204,8 +269,25 @@ class CampaignOrchestrator:
             }
 
         try:
+            # Construir mensagem com contexto
+            context_prefix = ""
+            if ad_account_id:
+                context_prefix = f"[Contexto: Conta de anúncios {ad_account_id}]\n\n"
+
+            # Adicionar histórico se disponível
+            history_context = ""
+            if history and len(history) > 0:
+                history_context = "Histórico recente da conversa:\n"
+                for msg in history[-5:]:  # Últimas 5 mensagens
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                    history_context += f"- {role}: {content}\n"
+                history_context += "\nMensagem atual: "
+
+            full_message = context_prefix + history_context + message
+
             # Executar o skill
-            response = await skill.arun(message)
+            response = await skill.arun(full_message)
 
             # Extrair conteúdo da resposta
             content = ""
