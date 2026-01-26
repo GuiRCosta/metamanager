@@ -7,14 +7,23 @@ services:
   backend:
     image: ${REGISTRY:-ghcr.io/guircosta}/metamanager-backend:${TAG:-latest}
     environment:
-      - META_ACCESS_TOKEN=${META_ACCESS_TOKEN}
-      - META_BUSINESS_ID=${META_BUSINESS_ID}
-      - META_AD_ACCOUNT_ID=${META_AD_ACCOUNT_ID}
-      - META_API_VERSION=${META_API_VERSION:-v24.0}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
-      - OPENAI_WHISPER_MODEL=${OPENAI_WHISPER_MODEL:-whisper-1}
+      # Sistema (obrigatório)
       - FRONTEND_URL=https://${DOMAIN}
+
+      # LLM Provider (obrigatório - agentes IA)
+      # Suporta OpenAI, OpenRouter ou qualquer API compatível
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - LLM_WHISPER_MODEL=${LLM_WHISPER_MODEL:-whisper-1}
+
+      # Meta API (opcional - pode configurar via UI em /settings)
+      - META_ACCESS_TOKEN=${META_ACCESS_TOKEN:-}
+      - META_BUSINESS_ID=${META_BUSINESS_ID:-}
+      - META_AD_ACCOUNT_ID=${META_AD_ACCOUNT_ID:-}
+      - META_API_VERSION=${META_API_VERSION:-v24.0}
+
+      # Evolution API (opcional - configurar via UI em /settings)
       - EVOLUTION_API_URL=${EVOLUTION_API_URL:-}
       - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-}
       - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE:-}

@@ -4,10 +4,6 @@ import json
 from typing import Optional
 from datetime import datetime
 
-from app.config import get_settings
-
-settings = get_settings()
-
 # Rate limiting configuration
 MAX_RETRIES = 3
 BASE_RETRY_DELAY = 1.0  # seconds
@@ -27,16 +23,40 @@ class MetaAPI:
 
     BASE_URL = "https://graph.facebook.com"
 
-    def __init__(self, ad_account_id: Optional[str] = None):
-        self.access_token = settings.meta_access_token
-        self.ad_account_id = ad_account_id or settings.meta_ad_account_id
-        self.business_id = settings.meta_business_id
-        self.api_version = settings.meta_api_version
+    def __init__(
+        self,
+        ad_account_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+        business_id: Optional[str] = None,
+        api_version: Optional[str] = None,
+    ):
+        """
+        Inicializa o cliente Meta API.
+
+        Prioridade de configuração:
+        1. Parâmetros passados no construtor
+        2. Configurações JSON (data/settings.json)
+        3. Variáveis de ambiente (.env)
+        """
+        # Import local para evitar circular import
+        from app.api.settings import get_meta_config
+
+        config = get_meta_config()
+
+        self.access_token = access_token or config.access_token
+        self.ad_account_id = ad_account_id or config.ad_account_id
+        self.business_id = business_id or config.business_id
+        self.api_version = api_version or config.api_version
         self.client = httpx.AsyncClient(timeout=30.0)
 
     def with_account(self, ad_account_id: str) -> "MetaAPI":
         """Retorna uma nova instância com outra conta de anúncios."""
-        return MetaAPI(ad_account_id=ad_account_id)
+        return MetaAPI(
+            ad_account_id=ad_account_id,
+            access_token=self.access_token,
+            business_id=self.business_id,
+            api_version=self.api_version,
+        )
 
     @property
     def _base_url(self) -> str:

@@ -39,8 +39,9 @@ def create_campaign_creator_agent() -> Agent:
     return Agent(
         name="Campaign Creator",
         model=OpenAIChat(
-            id=settings.openai_model,
-            api_key=settings.openai_api_key,
+            id=settings.llm_model,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url or None,
         ),
         tools=[create_campaign, create_ad_set, create_ad, list_campaigns],
         instructions=SYSTEM_PROMPT,

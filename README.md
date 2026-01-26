@@ -5,7 +5,7 @@ Aplicação full-stack para gerenciamento de campanhas Meta Ads com agentes de I
 ## Stack
 
 - **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: FastAPI (Python), OpenAI API
+- **Backend**: FastAPI (Python), OpenAI/OpenRouter API
 - **Database**: PostgreSQL (Supabase) + Prisma ORM
 - **Auth**: NextAuth.js
 - **WhatsApp**: Evolution API (opcional)
@@ -51,9 +51,13 @@ BACKEND_API_URL=http://localhost:8000
 META_ACCESS_TOKEN=seu_token_meta
 META_AD_ACCOUNT_ID=act_seu_id
 META_API_VERSION=v24.0
-OPENAI_API_KEY=sk-proj-xxx
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_WHISPER_MODEL=whisper-1
+
+# LLM Provider (OpenAI, OpenRouter, ou qualquer API compatível)
+LLM_API_KEY=sk-proj-xxx
+LLM_BASE_URL=                     # Vazio = OpenAI | https://openrouter.ai/api/v1 = OpenRouter
+LLM_MODEL=gpt-4o-mini             # OpenRouter: openai/gpt-4o-mini, anthropic/claude-3.5-sonnet
+LLM_WHISPER_MODEL=whisper-1       # Transcrição de áudio (apenas OpenAI direto)
+
 FRONTEND_URL=http://localhost:3000
 
 # Evolution API (WhatsApp) - Opcional
@@ -240,10 +244,16 @@ DOMAIN=metamanager.seudominio.com
 POSTGRES_HOST=postgres_postgres
 POSTGRES_PASSWORD=sua_senha
 NEXTAUTH_SECRET=$(openssl rand -base64 32)
+
+# Meta API (opcional - pode configurar via UI em /settings)
 META_ACCESS_TOKEN=seu_token
 META_BUSINESS_ID=seu_business_id
 META_AD_ACCOUNT_ID=act_xxx
-OPENAI_API_KEY=sk-proj-xxx
+
+# LLM Provider (obrigatório)
+LLM_API_KEY=sk-proj-xxx
+LLM_BASE_URL=                     # Vazio = OpenAI | OpenRouter: https://openrouter.ai/api/v1
+LLM_MODEL=gpt-4o-mini
 ```
 
 ### 3. Crie o banco de dados
@@ -352,12 +362,16 @@ docker compose build --no-cache # Rebuild
 | `POSTGRES_HOST` | Host do PostgreSQL | Sim |
 | `POSTGRES_PASSWORD` | Senha do PostgreSQL | Sim |
 | `NEXTAUTH_SECRET` | Chave NextAuth (gerar com `openssl rand -base64 32`) | Sim |
-| `META_ACCESS_TOKEN` | Token de acesso Meta | Sim |
-| `META_BUSINESS_ID` | ID do Business Manager | Sim |
-| `META_AD_ACCOUNT_ID` | ID da conta de anúncios (act_xxx) | Sim |
-| `OPENAI_API_KEY` | Chave da API OpenAI | Sim |
+| `LLM_API_KEY` | Chave da API (OpenAI ou OpenRouter) | Sim |
+| `LLM_BASE_URL` | URL base (vazio = OpenAI, OpenRouter = `https://openrouter.ai/api/v1`) | Não |
+| `LLM_MODEL` | Modelo do LLM (ex: `gpt-4o-mini`, `anthropic/claude-3.5-sonnet`) | Não |
+| `META_ACCESS_TOKEN` | Token de acesso Meta | Não* |
+| `META_BUSINESS_ID` | ID do Business Manager | Não* |
+| `META_AD_ACCOUNT_ID` | ID da conta de anúncios (act_xxx) | Não* |
 | `EVOLUTION_API_URL` | URL da Evolution API | Não |
 | `EVOLUTION_API_KEY` | Chave da Evolution API | Não |
+
+*Meta API e Evolution API podem ser configurados via UI em `/settings` após o deploy.
 
 ---
 

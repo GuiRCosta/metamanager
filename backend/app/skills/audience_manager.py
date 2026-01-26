@@ -47,8 +47,9 @@ def create_audience_manager_agent() -> Agent:
     return Agent(
         name="Audience Manager",
         model=OpenAIChat(
-            id=settings.openai_model,
-            api_key=settings.openai_api_key,
+            id=settings.llm_model,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url or None,
         ),
         tools=[
             search_interests,

@@ -48,8 +48,9 @@ def create_budget_optimizer_agent() -> Agent:
     return Agent(
         name="Budget Optimizer",
         model=OpenAIChat(
-            id=settings.openai_model,
-            api_key=settings.openai_api_key,
+            id=settings.llm_model,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url or None,
         ),
         tools=[
             get_account_spend_summary,

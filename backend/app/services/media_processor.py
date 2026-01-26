@@ -19,8 +19,10 @@ class MediaProcessor:
     """Processa áudio do WhatsApp."""
 
     def __init__(self):
-        self.client = AsyncOpenAI(api_key=settings.openai_api_key)
-        self.whisper_model = settings.openai_whisper_model
+        # Whisper requer API OpenAI diretamente (não funciona com OpenRouter)
+        # Se usar OpenRouter para LLM, Whisper não funcionará
+        self.client = AsyncOpenAI(api_key=settings.llm_api_key)
+        self.whisper_model = settings.llm_whisper_model
 
     async def download_media(self, url: str) -> bytes:
         """Baixa mídia de uma URL."""

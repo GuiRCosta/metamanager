@@ -1,6 +1,8 @@
 import json
 import os
 from pathlib import Path
+from dataclasses import dataclass
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
@@ -10,11 +12,31 @@ from app.models.settings import (
     TestConnectionResponse,
     MetaApiSettings,
 )
-from app.tools.meta_api import MetaAPI
+from app.config import get_settings as get_env_settings
 
 router = APIRouter()
 
 SETTINGS_FILE = Path(__file__).parent.parent.parent / "data" / "settings.json"
+
+
+@dataclass
+class MetaConfig:
+    """Configuração consolidada da Meta API (JSON + env vars)."""
+    access_token: str
+    business_id: str
+    ad_account_id: str
+    api_version: str
+
+
+@dataclass
+class EvolutionConfig:
+    """Configuração consolidada da Evolution API (JSON + env vars)."""
+    api_url: str
+    api_key: str
+    instance: str
+    webhook_secret: str
+    enabled: bool
+    allowed_numbers: list[str]
 
 
 def ensure_data_dir():
@@ -30,6 +52,50 @@ def load_settings() -> Settings:
             data = json.load(f)
             return Settings(**data)
     return Settings()
+
+
+def get_meta_config() -> MetaConfig:
+    """
+    Retorna configuração da Meta API.
+    Prioridade: JSON settings > Environment variables
+    """
+    json_settings = load_settings()
+    env_settings = get_env_settings()
+
+    # JSON tem prioridade, env var é fallback
+    access_token = json_settings.meta_api.access_token or env_settings.meta_access_token
+    business_id = json_settings.meta_api.business_id or env_settings.meta_business_id
+    ad_account_id = json_settings.meta_api.ad_account_id or env_settings.meta_ad_account_id
+    api_version = json_settings.meta_api.api_version or env_settings.meta_api_version
+
+    # Normaliza ad_account_id (remove 'act_' se presente para consistência)
+    if ad_account_id and ad_account_id.startswith("act_"):
+        ad_account_id = ad_account_id[4:]
+
+    return MetaConfig(
+        access_token=access_token or "",
+        business_id=business_id or "",
+        ad_account_id=ad_account_id or "",
+        api_version=api_version or "v24.0",
+    )
+
+
+def get_evolution_config() -> EvolutionConfig:
+    """
+    Retorna configuração da Evolution API.
+    Prioridade: JSON settings > Environment variables
+    """
+    json_settings = load_settings()
+    env_settings = get_env_settings()
+
+    return EvolutionConfig(
+        api_url=json_settings.evolution.api_url or env_settings.evolution_api_url or "",
+        api_key=json_settings.evolution.api_key or env_settings.evolution_api_key or "",
+        instance=json_settings.evolution.instance or env_settings.evolution_instance or "",
+        webhook_secret=json_settings.evolution.webhook_secret or env_settings.evolution_webhook_secret or "",
+        enabled=json_settings.evolution.enabled,
+        allowed_numbers=json_settings.evolution.allowed_numbers or [],
+    )
 
 
 def save_settings(settings: Settings) -> None:
@@ -68,6 +134,9 @@ async def update_settings(updates: SettingsUpdate):
 @router.post("/test-connection", response_model=TestConnectionResponse)
 async def test_meta_connection(credentials: MetaApiSettings):
     """Testa a conexão com a Meta API usando as credenciais fornecidas."""
+    # Import local para evitar circular import
+    from app.tools.meta_api import MetaAPI
+
     if not credentials.access_token:
         return TestConnectionResponse(
             success=False,
@@ -75,21 +144,13 @@ async def test_meta_connection(credentials: MetaApiSettings):
         )
 
     try:
-        # Salva temporariamente o token no ambiente para testar
-        original_token = os.environ.get("META_ACCESS_TOKEN")
-        os.environ["META_ACCESS_TOKEN"] = credentials.access_token
-
-        if credentials.business_id:
-            os.environ["META_BUSINESS_ID"] = credentials.business_id
-
-        meta_api = MetaAPI()
+        # Cria MetaAPI com credenciais temporárias para teste
+        meta_api = MetaAPI(
+            access_token=credentials.access_token,
+            business_id=credentials.business_id,
+            ad_account_id=credentials.ad_account_id,
+        )
         accounts = await meta_api.get_ad_accounts()
-
-        # Restaura o token original
-        if original_token:
-            os.environ["META_ACCESS_TOKEN"] = original_token
-        else:
-            os.environ.pop("META_ACCESS_TOKEN", None)
 
         if not accounts:
             return TestConnectionResponse(

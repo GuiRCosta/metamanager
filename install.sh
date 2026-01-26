@@ -75,8 +75,11 @@ read -p "Meta Business ID: " META_BUSINESS_ID
 read -p "Meta Ad Account ID (act_xxx): " META_AD_ACCOUNT_ID
 
 echo ""
-echo -e "${BLUE}=== Configuração do OpenAI ===${NC}"
-read -p "OpenAI API Key: " OPENAI_API_KEY
+echo -e "${BLUE}=== Configuração do LLM (OpenAI/OpenRouter) ===${NC}"
+read -p "LLM API Key: " LLM_API_KEY
+read -p "LLM Base URL (vazio=OpenAI, OpenRouter=https://openrouter.ai/api/v1): " LLM_BASE_URL
+read -p "LLM Model [gpt-4o-mini]: " LLM_MODEL
+LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
 
 echo ""
 echo -e "${BLUE}=== WhatsApp (opcional) ===${NC}"
@@ -126,16 +129,17 @@ echo -e "${YELLOW}Criando arquivo backend/.env...${NC}"
 cat > backend/.env << EOF
 # Gerado automaticamente em $(date)
 
-# Meta API
+# Meta API (opcional - pode configurar via UI em /settings)
 META_ACCESS_TOKEN=${META_ACCESS_TOKEN}
 META_BUSINESS_ID=${META_BUSINESS_ID}
 META_AD_ACCOUNT_ID=${META_AD_ACCOUNT_ID}
 META_API_VERSION=v24.0
 
-# OpenAI
-OPENAI_API_KEY=${OPENAI_API_KEY}
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_WHISPER_MODEL=whisper-1
+# LLM Provider (OpenAI, OpenRouter, ou qualquer API compatível)
+LLM_API_KEY=${LLM_API_KEY}
+LLM_BASE_URL=${LLM_BASE_URL}
+LLM_MODEL=${LLM_MODEL}
+LLM_WHISPER_MODEL=whisper-1
 
 # Frontend URL
 FRONTEND_URL=https://${DOMAIN}

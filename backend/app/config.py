@@ -10,10 +10,11 @@ class Settings(BaseSettings):
     meta_page_id: str = ""
     meta_api_version: str = "v24.0"
 
-    # OpenAI
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
-    openai_whisper_model: str = "whisper-1"  # Modelo de transcrição de áudio
+    # LLM Provider (OpenAI, OpenRouter, ou qualquer API compatível)
+    llm_api_key: str = ""
+    llm_base_url: str = ""  # Vazio = OpenAI | https://openrouter.ai/api/v1 = OpenRouter
+    llm_model: str = "gpt-4o-mini"  # OpenRouter: openai/gpt-4o-mini, anthropic/claude-3.5-sonnet
+    llm_whisper_model: str = "whisper-1"  # Transcrição de áudio (apenas OpenAI direto)
 
     # Evolution API (WhatsApp)
     evolution_api_url: str = ""  # Ex: https://evolution.seudominio.com

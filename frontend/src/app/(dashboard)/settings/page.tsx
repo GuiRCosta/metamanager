@@ -48,6 +48,8 @@ export default function SettingsPage() {
   const [metaApi, setMetaApi] = useState<MetaApiSettings>({
     access_token: "",
     business_id: "",
+    ad_account_id: "",
+    api_version: "v24.0",
   })
 
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -384,12 +386,23 @@ export default function SettingsPage() {
                 </p>
               </div>
 
-              <Separator />
+              <div className="space-y-2">
+                <Label htmlFor="adAccountId">Ad Account ID (padrão)</Label>
+                <Input
+                  id="adAccountId"
+                  placeholder="act_123456789 ou 123456789"
+                  value={metaApi.ad_account_id || ""}
+                  onChange={(e) =>
+                    setMetaApi((prev) => ({ ...prev, ad_account_id: e.target.value }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  ID da conta de anúncios padrão. Encontre em Gerenciador de Anúncios → ID na URL.
+                  O seletor no topo ainda permite alternar entre contas.
+                </p>
+              </div>
 
-              <p className="text-sm text-muted-foreground">
-                As contas de anúncio são carregadas automaticamente do Business Manager.
-                Use o seletor no topo da página para alternar entre elas.
-              </p>
+              <Separator />
 
               <div className="flex items-center gap-4">
                 <Button

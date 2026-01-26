@@ -47,32 +47,28 @@ def save_budget_state(state: dict):
 
 
 def get_evolution_client_from_settings() -> Optional[EvolutionClient]:
-    """Cria cliente Evolution a partir das configurações salvas."""
-    settings = load_settings()
-    evolution = settings.get("evolution", {})
+    """Cria cliente Evolution a partir das configurações (JSON + env vars)."""
+    from app.api.settings import get_evolution_config
 
-    if not evolution.get("enabled"):
+    config = get_evolution_config()
+
+    if not config.enabled:
         return None
 
-    api_url = evolution.get("api_url")
-    api_key = evolution.get("api_key")
-    instance = evolution.get("instance")
-
-    if not all([api_url, api_key, instance]):
+    if not all([config.api_url, config.api_key, config.instance]):
         return None
 
     return EvolutionClient(
-        api_url=api_url,
-        api_key=api_key,
-        instance=instance,
+        api_url=config.api_url,
+        api_key=config.api_key,
+        instance=config.instance,
     )
 
 
 def get_allowed_numbers() -> list[str]:
     """Obtém lista de números permitidos para receber mensagens."""
-    settings = load_settings()
-    evolution = settings.get("evolution", {})
-    return evolution.get("allowed_numbers", [])
+    from app.api.settings import get_evolution_config
+    return get_evolution_config().allowed_numbers
 
 
 def get_notification_settings() -> dict:

@@ -4,10 +4,7 @@ Cliente para Evolution API (WhatsApp).
 
 import httpx
 from typing import Optional
-from app.config import get_settings
 from app.models.whatsapp import SendTextRequest, SendMediaRequest, WhatsAppResponse
-
-settings = get_settings()
 
 
 class EvolutionClient:
@@ -19,9 +16,22 @@ class EvolutionClient:
         api_key: Optional[str] = None,
         instance: Optional[str] = None,
     ):
-        self.api_url = (api_url or settings.evolution_api_url).rstrip("/")
-        self.api_key = api_key or settings.evolution_api_key
-        self.instance = instance or settings.evolution_instance
+        """
+        Inicializa o cliente Evolution API.
+
+        Prioridade de configuração:
+        1. Parâmetros passados no construtor
+        2. Configurações JSON (data/settings.json)
+        3. Variáveis de ambiente (.env)
+        """
+        # Import local para evitar circular import
+        from app.api.settings import get_evolution_config
+
+        config = get_evolution_config()
+
+        self.api_url = (api_url or config.api_url).rstrip("/")
+        self.api_key = api_key or config.api_key
+        self.instance = instance or config.instance
 
         self.headers = {
             "Content-Type": "application/json",

@@ -194,20 +194,22 @@ NEXTAUTH_SECRET=chave_gerada_aqui
 2. **Criar arquivo `backend/.env`:**
 
 ```env
-# Meta API
+# Meta API (opcional - pode configurar via UI em /settings)
 META_ACCESS_TOKEN=seu_token_meta
 META_BUSINESS_ID=seu_business_id
 META_AD_ACCOUNT_ID=act_xxx
 META_API_VERSION=v24.0
 
-# OpenAI
-OPENAI_API_KEY=sk-proj-xxx
-OPENAI_MODEL=gpt-4o-mini
+# LLM Provider (OpenAI, OpenRouter, ou qualquer API compatível)
+LLM_API_KEY=sk-proj-xxx
+LLM_BASE_URL=                     # Vazio = OpenAI | https://openrouter.ai/api/v1 = OpenRouter
+LLM_MODEL=gpt-4o-mini             # OpenRouter: openai/gpt-4o-mini, anthropic/claude-3.5-sonnet
+LLM_WHISPER_MODEL=whisper-1       # Transcrição de áudio (apenas OpenAI direto)
 
 # Frontend URL
 FRONTEND_URL=https://app.seudominio.com
 
-# WhatsApp (opcional)
+# WhatsApp (opcional - pode configurar via UI em /settings)
 EVOLUTION_API_URL=https://evolution.seudominio.com
 EVOLUTION_API_KEY=sua_api_key
 EVOLUTION_INSTANCE=nome_da_instancia

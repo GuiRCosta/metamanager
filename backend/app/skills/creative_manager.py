@@ -36,8 +36,9 @@ def create_creative_manager_agent() -> Agent:
     return Agent(
         name="Creative Manager",
         model=OpenAIChat(
-            id=settings.openai_model,
-            api_key=settings.openai_api_key,
+            id=settings.llm_model,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url or None,
         ),
         tools=[list_creatives, get_creative_specs, get_creative_best_practices],
         instructions=SYSTEM_PROMPT,
