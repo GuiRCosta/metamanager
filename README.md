@@ -205,15 +205,91 @@ Para habilitar o acesso via WhatsApp, siga os passos:
 | Alerta 100% | Gasto atinge 100% do orçamento | Orçamento > Alertas |
 | Projeção Excesso | Projeção > 110% do orçamento | Orçamento > Alertas |
 
-## Deploy com Docker (Portainer)
+## Deploy
 
-O projeto conecta ao seu PostgreSQL e Traefik existentes.
+O projeto suporta **Docker Compose** e **Docker Swarm**.
 
 ### Pré-requisitos
-- Docker e Docker Compose
+- Docker e Docker Compose (ou Docker Swarm)
 - PostgreSQL rodando
 - Traefik configurado com SSL
 - Domínio apontando para o servidor
+
+---
+
+## Opção 1: Docker Swarm (Recomendado para produção)
+
+Para ambientes com Docker Swarm (Portainer, clusters, etc).
+
+### 1. Clone o repositório
+```bash
+cd /opt
+git clone https://github.com/GuiRCosta/metamanager.git
+cd metamanager
+```
+
+### 2. Configure as variáveis
+```bash
+cp .env.swarm .env.swarm.local
+nano .env.swarm.local
+```
+
+Preencha:
+```env
+DOMAIN=metamanager.seudominio.com
+POSTGRES_HOST=postgres_postgres
+POSTGRES_PASSWORD=sua_senha
+NEXTAUTH_SECRET=$(openssl rand -base64 32)
+META_ACCESS_TOKEN=seu_token
+META_BUSINESS_ID=seu_business_id
+META_AD_ACCOUNT_ID=act_xxx
+OPENAI_API_KEY=sk-proj-xxx
+```
+
+### 3. Crie o banco de dados
+```bash
+docker exec $(docker ps -qf "name=postgres") psql -U postgres -c "CREATE DATABASE metamanager;"
+```
+
+### 4. Build das imagens
+```bash
+docker build -t metamanager-backend:latest ./backend
+docker build -t metamanager-frontend:latest ./frontend
+```
+
+### 5. Deploy da stack
+```bash
+# Carregar variáveis
+set -a && source .env.swarm.local && set +a
+
+# Deploy
+docker stack deploy -c docker-stack.yml metamanager
+```
+
+### 6. Execute as migrations
+```bash
+# Aguarde ~30 segundos para o frontend iniciar
+docker exec $(docker ps -qf "name=metamanager_frontend" | head -1) npx prisma migrate deploy
+```
+
+### 7. Verifique o status
+```bash
+docker stack services metamanager
+```
+
+### Comandos úteis (Swarm)
+```bash
+docker stack services metamanager          # Ver serviços
+docker service logs metamanager_backend -f # Logs backend
+docker service logs metamanager_frontend -f # Logs frontend
+docker stack rm metamanager                # Remover stack
+```
+
+---
+
+## Opção 2: Docker Compose
+
+Para ambientes simples com Docker Compose.
 
 ### Instalação Automática
 
@@ -230,47 +306,67 @@ O script vai:
 
 ### Instalação Manual
 
-1. **Clone e configure:**
 ```bash
 git clone https://github.com/GuiRCosta/metamanager.git
 cd metamanager
 cp .env.example .env
-nano .env
-```
+nano .env          # Preencha as variáveis
+nano backend/.env  # Configure backend
 
-2. **Configure o backend:**
-```bash
-cp backend/.env.example backend/.env
-nano backend/.env
-```
-
-3. **Inicie:**
-```bash
 docker compose up -d
 ```
 
-5. **Acesse:**
-- Frontend: `https://seudominio.com`
-- Backend: `https://api.seudominio.com`
-- Traefik Dashboard: `https://traefik.seudominio.com`
+### Comandos úteis (Compose)
+```bash
+docker compose logs -f        # Ver logs
+docker compose restart        # Reiniciar
+docker compose down           # Parar
+docker compose build --no-cache # Rebuild
+```
 
-### Variáveis de Ambiente (.env)
+---
 
-| Variável | Descrição | Exemplo |
-|----------|-----------|---------|
-| `DOMAIN` | Seu domínio (sem https) | `app.exemplo.com` |
-| `ACME_EMAIL` | Email para SSL | `admin@exemplo.com` |
-| `POSTGRES_PASSWORD` | Senha do banco | `senha_segura` |
-| `NEXTAUTH_SECRET` | Chave NextAuth | `openssl rand -base64 32` |
+## Deploy via Portainer
 
-### Deploy via Portainer
+### Docker Swarm (Stack)
+1. Portainer > **Stacks > Add Stack**
+2. Nome: `metamanager`
+3. **Web editor**: Cole o conteúdo de `docker-stack.yml`
+4. Configure as **Environment variables**
+5. **Deploy the stack**
 
-1. No Portainer: **Stacks > Add Stack**
-2. Selecione **Repository**
-3. URL: `https://github.com/GuiRCosta/metamanager.git`
-4. Compose path: `docker-compose.yml`
-5. Adicione as variáveis em **Environment variables**
-6. Deploy
+### Docker Compose
+1. Portainer > **Stacks > Add Stack**
+2. **Repository**: `https://github.com/GuiRCosta/metamanager.git`
+3. Compose path: `docker-compose.yml`
+4. Configure as variáveis
+5. Deploy
+
+---
+
+## Variáveis de Ambiente
+
+| Variável | Descrição | Obrigatório |
+|----------|-----------|-------------|
+| `DOMAIN` | Domínio (sem https) | Sim |
+| `POSTGRES_HOST` | Host do PostgreSQL | Sim |
+| `POSTGRES_PASSWORD` | Senha do PostgreSQL | Sim |
+| `NEXTAUTH_SECRET` | Chave NextAuth (gerar com `openssl rand -base64 32`) | Sim |
+| `META_ACCESS_TOKEN` | Token de acesso Meta | Sim |
+| `META_BUSINESS_ID` | ID do Business Manager | Sim |
+| `META_AD_ACCOUNT_ID` | ID da conta de anúncios (act_xxx) | Sim |
+| `OPENAI_API_KEY` | Chave da API OpenAI | Sim |
+| `EVOLUTION_API_URL` | URL da Evolution API | Não |
+| `EVOLUTION_API_KEY` | Chave da Evolution API | Não |
+
+---
+
+## Primeiro Acesso
+
+Após o deploy:
+1. Acesse `https://seudominio.com/register`
+2. Crie sua conta
+3. Faça login em `https://seudominio.com/login`
 
 ## Banco de Dados
 
