@@ -4,8 +4,7 @@ pydantic==2.9.0
 pydantic-settings==2.5.0
 httpx==0.27.0
 python-dotenv==1.0.1
-openai==1.50.0
 slowapi==0.1.9
 python-multipart==0.0.9
-agno==1.4.5
+agno[openai]==1.4.5
 apscheduler==3.10.4
