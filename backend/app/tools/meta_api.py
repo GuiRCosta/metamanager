@@ -758,50 +758,65 @@ class MetaAPI:
         include_archived: bool = False,
         max_campaigns: int = 20,
     ) -> list[dict]:
-        """Obtém métricas de todos os ad sets para análise."""
-        import asyncio
+        """Obtém métricas de todos os ad sets em uma única chamada otimizada."""
+        # Filtro de status para incluir drafts
+        filtering = '[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED","DRAFT","PENDING_REVIEW","CAMPAIGN_PAUSED","IN_PROCESS","WITH_ISSUES"'
+        if include_archived:
+            filtering += ',"ARCHIVED"'
+        filtering += ']}]'
 
-        campaigns = await self.get_campaigns(include_archived=include_archived)
-        # Limit campaigns and prioritize active ones
-        active_campaigns = [c for c in campaigns if c.get("status") == "ACTIVE"]
-        other_campaigns = [c for c in campaigns if c.get("status") != "ACTIVE"]
-        limited_campaigns = (active_campaigns + other_campaigns)[:max_campaigns]
+        # Buscar todos os ad sets com insights em uma única chamada
+        result = await self._request(
+            "GET",
+            f"act_{self.ad_account_id}/adsets",
+            params={
+                "fields": "id,name,status,effective_status,daily_budget,campaign_id,campaign{id,name},insights.date_preset(" + date_preset + "){spend,impressions,clicks,reach,ctr,cpc,actions}",
+                "filtering": filtering,
+                "limit": 500,
+            },
+        )
 
-        async def process_campaign(campaign: dict) -> list[dict]:
-            results = []
-            try:
-                adsets = await self.get_ad_sets(campaign["id"])
-                for adset in adsets:
-                    adset_data = {
-                        "id": adset["id"],
-                        "name": adset["name"],
-                        "status": adset.get("status", "UNKNOWN"),
-                        "campaign_id": campaign["id"],
-                        "campaign_name": campaign["name"],
-                        "daily_budget": adset.get("daily_budget"),
-                    }
-                    try:
-                        insights = await self.get_adset_insights(adset["id"], date_preset)
-                        adset_data["insights"] = insights
-                    except Exception:
-                        adset_data["insights"] = None
-                    results.append(adset_data)
-            except Exception:
-                pass
-            return results
-
-        # Process campaigns in parallel (batches of 5 to avoid rate limits)
         all_adsets = []
-        batch_size = 5
-        for i in range(0, len(limited_campaigns), batch_size):
-            batch = limited_campaigns[i:i + batch_size]
-            batch_results = await asyncio.gather(
-                *[process_campaign(c) for c in batch],
-                return_exceptions=True
-            )
-            for result in batch_results:
-                if isinstance(result, list):
-                    all_adsets.extend(result)
+        data = result.get("data", [])
+
+        for adset in data:
+            campaign = adset.get("campaign", {})
+            insights_data = adset.get("insights", {}).get("data", [])
+            insights = insights_data[0] if insights_data else {}
+
+            # Extrair conversões do campo actions
+            actions = insights.get("actions", [])
+            conversions = 0
+            leads = 0
+            purchases = 0
+            for action in actions:
+                action_type = action.get("action_type", "")
+                value = int(action.get("value", 0))
+                if action_type == "lead":
+                    leads = value
+                elif action_type in ["purchase", "omni_purchase"]:
+                    purchases += value
+            conversions = leads + purchases
+
+            all_adsets.append({
+                "id": adset["id"],
+                "name": adset["name"],
+                "status": adset.get("effective_status", adset.get("status", "UNKNOWN")),
+                "campaign_id": campaign.get("id", ""),
+                "campaign_name": campaign.get("name", ""),
+                "daily_budget": adset.get("daily_budget"),
+                "insights": {
+                    "spend": float(insights.get("spend", 0)),
+                    "impressions": int(insights.get("impressions", 0)),
+                    "clicks": int(insights.get("clicks", 0)),
+                    "reach": int(insights.get("reach", 0)),
+                    "conversions": conversions,
+                    "leads": leads,
+                    "purchases": purchases,
+                    "ctr": float(insights.get("ctr", 0)),
+                    "cpc": float(insights.get("cpc", 0)) if insights.get("cpc") else 0,
+                } if insights else None,
+            })
 
         return all_adsets
 
@@ -811,57 +826,74 @@ class MetaAPI:
         include_archived: bool = False,
         max_campaigns: int = 20,
     ) -> list[dict]:
-        """Obtém métricas de todos os anúncios para análise."""
-        import asyncio
+        """Obtém métricas de todos os anúncios em uma única chamada otimizada."""
+        # Filtro de status para incluir drafts
+        filtering = '[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED","DRAFT","PENDING_REVIEW","CAMPAIGN_PAUSED","ADSET_PAUSED","IN_PROCESS","WITH_ISSUES"'
+        if include_archived:
+            filtering += ',"ARCHIVED"'
+        filtering += ']}]'
 
-        campaigns = await self.get_campaigns(include_archived=include_archived)
-        # Limit campaigns and prioritize active ones
-        active_campaigns = [c for c in campaigns if c.get("status") == "ACTIVE"]
-        other_campaigns = [c for c in campaigns if c.get("status") != "ACTIVE"]
-        limited_campaigns = (active_campaigns + other_campaigns)[:max_campaigns]
+        # Buscar todos os ads com insights em uma única chamada
+        result = await self._request(
+            "GET",
+            f"act_{self.ad_account_id}/ads",
+            params={
+                "fields": "id,name,status,effective_status,adset_id,adset{id,name},campaign{id,name},creative{id,name,object_type,thumbnail_url},insights.date_preset(" + date_preset + "){spend,impressions,clicks,reach,ctr,cpc,actions}",
+                "filtering": filtering,
+                "limit": 500,
+            },
+        )
 
-        async def process_campaign(campaign: dict) -> list[dict]:
-            results = []
-            try:
-                adsets = await self.get_ad_sets(campaign["id"])
-                for adset in adsets:
-                    try:
-                        ads = await self.get_ads(adset["id"])
-                        for ad in ads:
-                            ad_data = {
-                                "id": ad["id"],
-                                "name": ad["name"],
-                                "status": ad.get("effective_status", ad.get("status", "UNKNOWN")),
-                                "campaign_id": campaign["id"],
-                                "campaign_name": campaign["name"],
-                                "adset_id": adset["id"],
-                                "adset_name": adset["name"],
-                                "creative": ad.get("creative"),
-                            }
-                            try:
-                                insights = await self.get_ad_insights(ad["id"], date_preset)
-                                ad_data["insights"] = insights
-                            except Exception:
-                                ad_data["insights"] = None
-                            results.append(ad_data)
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-            return results
-
-        # Process campaigns in parallel (batches of 5 to avoid rate limits)
         all_ads = []
-        batch_size = 5
-        for i in range(0, len(limited_campaigns), batch_size):
-            batch = limited_campaigns[i:i + batch_size]
-            batch_results = await asyncio.gather(
-                *[process_campaign(c) for c in batch],
-                return_exceptions=True
-            )
-            for result in batch_results:
-                if isinstance(result, list):
-                    all_ads.extend(result)
+        data = result.get("data", [])
+
+        for ad in data:
+            campaign = ad.get("campaign", {})
+            adset = ad.get("adset", {})
+            creative = ad.get("creative", {})
+            insights_data = ad.get("insights", {}).get("data", [])
+            insights = insights_data[0] if insights_data else {}
+
+            # Extrair conversões do campo actions
+            actions = insights.get("actions", [])
+            conversions = 0
+            leads = 0
+            purchases = 0
+            for action in actions:
+                action_type = action.get("action_type", "")
+                value = int(action.get("value", 0))
+                if action_type == "lead":
+                    leads = value
+                elif action_type in ["purchase", "omni_purchase"]:
+                    purchases += value
+            conversions = leads + purchases
+
+            all_ads.append({
+                "id": ad["id"],
+                "name": ad["name"],
+                "status": ad.get("effective_status", ad.get("status", "UNKNOWN")),
+                "campaign_id": campaign.get("id", ""),
+                "campaign_name": campaign.get("name", ""),
+                "adset_id": adset.get("id", ""),
+                "adset_name": adset.get("name", ""),
+                "creative": {
+                    "id": creative.get("id"),
+                    "name": creative.get("name"),
+                    "object_type": creative.get("object_type"),
+                    "thumbnail_url": creative.get("thumbnail_url"),
+                } if creative else None,
+                "insights": {
+                    "spend": float(insights.get("spend", 0)),
+                    "impressions": int(insights.get("impressions", 0)),
+                    "clicks": int(insights.get("clicks", 0)),
+                    "reach": int(insights.get("reach", 0)),
+                    "conversions": conversions,
+                    "leads": leads,
+                    "purchases": purchases,
+                    "ctr": float(insights.get("ctr", 0)),
+                    "cpc": float(insights.get("cpc", 0)) if insights.get("cpc") else 0,
+                } if insights else None,
+            })
 
         return all_ads
 
