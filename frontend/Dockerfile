@@ -26,8 +26,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Instalar apenas o que precisa para migrations
-RUN npm install -g prisma
+# Instalar apenas o que precisa para migrations (fixar versão compatível)
+RUN npm install -g prisma@5.22.0
 
 # Criar usuário não-root
 RUN addgroup --system --gid 1001 nodejs
