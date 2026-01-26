@@ -26,9 +26,6 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Instalar apenas o que precisa para migrations (fixar versão compatível)
-RUN npm install -g prisma@5.22.0
-
 # Criar usuário não-root
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -40,6 +37,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 # Copiar script de entrada
 COPY docker-entrypoint.sh ./
