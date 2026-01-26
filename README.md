@@ -24,16 +24,13 @@ Aplicação full-stack para gerenciamento de campanhas Meta Ads com agentes de I
 │
 ├── backend/               # FastAPI
 │   ├── app/
-│   │   ├── api/          # Endpoints
-│   │   ├── agents/       # Agentes de IA
+│   │   ├── api/          # Endpoints REST
+│   │   ├── models/       # Modelos Pydantic
 │   │   ├── services/     # WhatsApp handler, scheduler
-│   │   ├── skills/       # Orquestrador de agentes
-│   │   ├── tools/        # Cliente Meta API
-│   │   └── models/       # Modelos Pydantic
+│   │   ├── skills/       # Orchestrator + 7 skills de IA
+│   │   └── tools/        # Cliente Meta API
 │   ├── data/             # Configurações persistidas
 │   └── requirements.txt
-│
-└── DOCUMENTACAO_COMPLETA/ # Documentação original
 ```
 
 ## Configuração
@@ -128,24 +125,21 @@ uvicorn app.main:app --reload
 - **Projeção de gastos** - Alerta quando projeção excede o orçamento mensal
 - **Lista de números permitidos** - Controle quem pode acessar o agente
 
-## Agentes de IA
+## Arquitetura de IA
 
-O sistema possui 3 agentes especializados:
+O sistema utiliza um **Orchestrator** que coordena 7 skills especializados:
 
-1. **CampaignOptimizerAgent**
-   - Analisa métricas de performance
-   - Sugere ajustes de orçamento
-   - Identifica campanhas de baixa performance
+| Skill | Função |
+|-------|--------|
+| **Campaign Creator** | Criação de campanhas, ad sets e anúncios |
+| **Campaign Editor** | Edição, pausa e exclusão de campanhas |
+| **Audience Manager** | Gerenciamento de públicos e targeting |
+| **Creative Manager** | Gerenciamento de criativos e imagens |
+| **Budget Optimizer** | Otimização e realocação de orçamento |
+| **Performance Analyzer** | Análise de métricas e tendências |
+| **Report Generator** | Geração de relatórios e insights |
 
-2. **BudgetAdvisorAgent**
-   - Análise de distribuição de orçamento
-   - Projeção de gasto mensal
-   - Sugestões de realocação
-
-3. **PerformanceAnalystAgent**
-   - Análise de tendências
-   - Comparação entre campanhas
-   - Geração de insights
+O `CampaignOrchestrator` analisa sua pergunta e delega automaticamente para o skill mais adequado.
 
 ## API Endpoints
 
