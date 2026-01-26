@@ -1,11 +1,49 @@
 # Guia de Instalação - Meta Campaign Manager
 
+> Testado em **Ubuntu 24.04 LTS**
+
 ## Pré-requisitos
 
 - Docker e Docker Compose instalados
 - Traefik configurado como reverse proxy
 - PostgreSQL rodando (container ou externo)
 - Domínio apontando para o servidor
+
+---
+
+## Instalação do Docker (Ubuntu 24.04)
+
+Se ainda não tem Docker instalado:
+
+```bash
+# Atualizar pacotes
+sudo apt update && sudo apt upgrade -y
+
+# Instalar dependências
+sudo apt install -y ca-certificates curl gnupg lsb-release
+
+# Adicionar chave GPG oficial do Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Adicionar repositório
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Instalar Docker
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Adicionar usuário ao grupo docker (evita usar sudo)
+sudo usermod -aG docker $USER
+
+# Aplicar mudança de grupo (ou faça logout/login)
+newgrp docker
+
+# Verificar instalação
+docker --version
+docker compose version
+```
 
 ---
 
@@ -46,14 +84,57 @@ docker ps --format "{{.Names}}" | head -5 | xargs -I {} docker inspect {} 2>/dev
 # Valor comum: letsencrypt
 ```
 
-### 4. Comando de Diagnóstico Completo
+### 4. Comando de Diagnóstico Completo (Ubuntu)
+
+Cole este comando no terminal da VPS para ver todas as informações de uma vez:
 
 ```bash
-echo "=== REDES DOCKER ===" && \
-docker network ls && \
+echo "========================================" && \
+echo "  DIAGNÓSTICO - Meta Campaign Manager" && \
+echo "========================================" && \
 echo "" && \
-echo "=== CONTAINERS POSTGRES ===" && \
-docker ps --format "table {{.Names}}\t{{.Image}}" | grep -i postgres
+echo ">>> Sistema Operacional:" && \
+lsb_release -d && \
+echo "" && \
+echo ">>> Docker Version:" && \
+docker --version && \
+echo "" && \
+echo ">>> REDES DOCKER:" && \
+docker network ls --format "table {{.Name}}\t{{.Driver}}" && \
+echo "" && \
+echo ">>> CONTAINERS RODANDO:" && \
+docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" && \
+echo "" && \
+echo ">>> CONTAINERS POSTGRES:" && \
+docker ps -a --format "table {{.Names}}\t{{.Image}}" | grep -i postgres || echo "Nenhum container PostgreSQL encontrado" && \
+echo "" && \
+echo ">>> CONTAINERS TRAEFIK:" && \
+docker ps -a --format "table {{.Names}}\t{{.Image}}" | grep -i traefik || echo "Nenhum container Traefik encontrado" && \
+echo "" && \
+echo ">>> CERTRESOLVER (de containers existentes):" && \
+docker ps --format "{{.Names}}" | head -3 | xargs -I {} sh -c 'docker inspect {} 2>/dev/null | grep -o "certresolver=[^\"]*" | head -1' 2>/dev/null || echo "Não encontrado" && \
+echo "" && \
+echo "========================================"
+```
+
+### 5. Verificar Configurações do PostgreSQL
+
+```bash
+# Se PostgreSQL está em container, ver credenciais
+docker inspect $(docker ps -qf "ancestor=postgres" | head -1) 2>/dev/null | grep -E "(POSTGRES_USER|POSTGRES_PASSWORD|POSTGRES_DB)" | head -3
+
+# Ver IP interno do container PostgreSQL
+docker inspect $(docker ps -qf "ancestor=postgres" | head -1) 2>/dev/null | grep -o '"IPAddress": "[^"]*"' | head -1
+```
+
+### 6. Verificar Configuração do Traefik
+
+```bash
+# Ver arquivo de configuração do Traefik (se existir)
+sudo find /opt /home /root -name "traefik.yml" -o -name "traefik.toml" 2>/dev/null | head -1 | xargs cat 2>/dev/null
+
+# Ver docker-compose do Traefik
+sudo find /opt /home /root -name "docker-compose.yml" -exec grep -l "traefik" {} \; 2>/dev/null | head -1 | xargs cat 2>/dev/null | grep -A 30 "traefik"
 ```
 
 ---
