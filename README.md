@@ -205,6 +205,65 @@ Para habilitar o acesso via WhatsApp, siga os passos:
 | Alerta 100% | Gasto atinge 100% do orçamento | Orçamento > Alertas |
 | Projeção Excesso | Projeção > 110% do orçamento | Orçamento > Alertas |
 
+## Deploy com Docker (Portainer)
+
+O projeto inclui setup completo para deploy em produção com:
+- **PostgreSQL** - Banco de dados
+- **Traefik** - Reverse proxy com SSL automático (Let's Encrypt)
+
+### Pré-requisitos
+- Docker e Docker Compose instalados
+- Domínio apontando para o servidor (DNS configurado)
+- Portas 80 e 443 liberadas
+
+### Passo a Passo
+
+1. **Clone o repositório no servidor:**
+```bash
+git clone https://github.com/GuiRCosta/metamanager.git
+cd metamanager
+```
+
+2. **Configure as variáveis de ambiente:**
+```bash
+cp .env.example .env
+nano .env  # Preencha com seus valores
+```
+
+3. **Configure o backend:**
+```bash
+cp backend/.env.example backend/.env
+nano backend/.env  # Adicione suas chaves da Meta e OpenAI
+```
+
+4. **Inicie os containers:**
+```bash
+docker-compose up -d
+```
+
+5. **Acesse:**
+- Frontend: `https://seudominio.com`
+- Backend: `https://api.seudominio.com`
+- Traefik Dashboard: `https://traefik.seudominio.com`
+
+### Variáveis de Ambiente (.env)
+
+| Variável | Descrição | Exemplo |
+|----------|-----------|---------|
+| `DOMAIN` | Seu domínio (sem https) | `app.exemplo.com` |
+| `ACME_EMAIL` | Email para SSL | `admin@exemplo.com` |
+| `POSTGRES_PASSWORD` | Senha do banco | `senha_segura` |
+| `NEXTAUTH_SECRET` | Chave NextAuth | `openssl rand -base64 32` |
+
+### Deploy via Portainer
+
+1. No Portainer: **Stacks > Add Stack**
+2. Selecione **Repository**
+3. URL: `https://github.com/GuiRCosta/metamanager.git`
+4. Compose path: `docker-compose.yml`
+5. Adicione as variáveis em **Environment variables**
+6. Deploy
+
 ## Banco de Dados
 
 Modelos principais:
