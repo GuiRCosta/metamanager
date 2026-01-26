@@ -1,0 +1,28 @@
+{
+  "budget": {
+    "monthly_budget": 5000.0,
+    "alerts": {
+      "alert_50": true,
+      "alert_80": true,
+      "alert_100": true,
+      "projection_excess": true
+    }
+  },
+  "meta_api": {
+    "access_token": "EAAMr8h0Y08gBQijq8T7HfZAQPEMBCTsJhFwZBvMDUA9xwTJU7MZCsVmAUlQgK5DcBfWUOZAQQd9E6dNywB7h9rpJ7wEhT3451UddmmLLNbtBrJyeZAlDh1jhwPhCTbaZCZBpy94oB9U3SgOSxMYbWoOON8bx0NwhRM27k1bjl4sEaDre59k4DAWLn2BrpkCK0KdHeWUwoBk",
+    "business_id": "471792614410232"
+  },
+  "notifications": {
+    "daily_reports": true,
+    "immediate_alerts": true,
+    "optimization_suggestions": true,
+    "status_changes": true,
+    "report_time": "09:00"
+  },
+  "goals": {
+    "conversion_goal": null,
+    "roas_goal": null,
+    "cpc_max": null,
+    "ctr_min": null
+  }
+}

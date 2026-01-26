@@ -13,8 +13,7 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
-    openai_vision_model: str = "gpt-4o"  # Modelo com suporte a visão
-    openai_whisper_model: str = "whisper-1"  # Modelo de transcrição
+    openai_whisper_model: str = "whisper-1"  # Modelo de transcrição de áudio
 
     # Evolution API (WhatsApp)
     evolution_api_url: str = ""  # Ex: https://evolution.seudominio.com

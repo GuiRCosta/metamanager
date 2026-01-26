@@ -3,7 +3,6 @@ Handler de mensagens do WhatsApp.
 Coordena o processamento de mídia e integração com o orquestrador de agentes.
 """
 
-import json
 from datetime import datetime
 from typing import Optional
 from app.config import get_settings
@@ -171,45 +170,40 @@ class WhatsAppHandler:
 
             # Extrair conteúdo baseado no tipo
             user_input = ""
-            media_context = ""
 
             if msg_type == MessageType.TEXT:
                 user_input = self._extract_text(message) or ""
 
             elif msg_type == MessageType.AUDIO:
                 media_info = self._extract_media_info(message, "audio")
-                processed_type, media_context = await self.media_processor.process_media(
-                    media_type="audio",
-                    url=media_info.get("url"),
-                    base64_data=media_info.get("base64"),
+                transcription = await self.media_processor.transcribe_audio(
+                    audio_url=media_info.get("url"),
+                    audio_base64=media_info.get("base64"),
                 )
-                # Para áudio, o texto transcrito é o input
-                user_input = media_context.replace("[Transcrição de áudio]: ", "")
+                user_input = transcription
 
             elif msg_type == MessageType.IMAGE:
-                media_info = self._extract_media_info(message, "image")
-                processed_type, media_context = await self.media_processor.process_media(
-                    media_type="image",
-                    url=media_info.get("url"),
-                    base64_data=media_info.get("base64"),
-                    caption=media_info.get("caption"),
+                # Imagem não suportada por enquanto
+                await self.evolution_client.send_text(
+                    number=phone_number,
+                    text="No momento não consigo processar imagens. Por favor, envie sua mensagem como texto ou áudio.",
                 )
-                # Para imagem, combinar caption (se houver) com análise
-                user_input = media_info.get("caption", "") or "O que você vê nesta imagem?"
-                user_input = f"{user_input}\n\n{media_context}"
+                return {"processed": True, "response": "Image not supported"}
 
             elif msg_type == MessageType.VIDEO:
-                media_info = self._extract_media_info(message, "video")
-                processed_type, media_context = await self.media_processor.process_media(
-                    media_type="video",
-                    url=media_info.get("url"),
-                    base64_data=media_info.get("base64"),
-                    caption=media_info.get("caption"),
+                # Vídeo não suportado por enquanto
+                await self.evolution_client.send_text(
+                    number=phone_number,
+                    text="No momento não consigo processar vídeos. Por favor, envie sua mensagem como texto ou áudio.",
                 )
-                user_input = media_info.get("caption", "") or media_context
+                return {"processed": True, "response": "Video not supported"}
 
             elif msg_type == MessageType.DOCUMENT:
-                user_input = "Recebi um documento. No momento, não consigo processar documentos diretamente. Por favor, descreva o que precisa ou envie como texto/imagem."
+                await self.evolution_client.send_text(
+                    number=phone_number,
+                    text="No momento não consigo processar documentos. Por favor, envie sua mensagem como texto ou áudio.",
+                )
+                return {"processed": True, "response": "Document not supported"}
 
             elif msg_type == MessageType.STICKER:
                 return {"processed": True, "response": None, "reason": "Sticker ignored"}
@@ -218,7 +212,7 @@ class WhatsAppHandler:
                 return {"processed": True, "response": None, "reason": "Reaction ignored"}
 
             else:
-                user_input = "Recebi sua mensagem, mas não consegui identificar o tipo. Por favor, envie como texto."
+                user_input = "Recebi sua mensagem, mas não consegui identificar o tipo. Por favor, envie como texto ou áudio."
 
             if not user_input.strip():
                 return {"processed": False, "reason": "Empty input"}
