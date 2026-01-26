@@ -207,38 +207,46 @@ Para habilitar o acesso via WhatsApp, siga os passos:
 
 ## Deploy com Docker (Portainer)
 
-O projeto inclui setup completo para deploy em produção com:
-- **PostgreSQL** - Banco de dados
-- **Traefik** - Reverse proxy com SSL automático (Let's Encrypt)
+O projeto conecta ao seu PostgreSQL e Traefik existentes.
 
 ### Pré-requisitos
-- Docker e Docker Compose instalados
-- Domínio apontando para o servidor (DNS configurado)
-- Portas 80 e 443 liberadas
+- Docker e Docker Compose
+- PostgreSQL rodando
+- Traefik configurado com SSL
+- Domínio apontando para o servidor
 
-### Passo a Passo
+### Instalação Automática
 
-1. **Clone o repositório no servidor:**
 ```bash
 git clone https://github.com/GuiRCosta/metamanager.git
 cd metamanager
+./install.sh
 ```
 
-2. **Configure as variáveis de ambiente:**
+O script vai:
+1. Pedir as configurações (domínio, PostgreSQL, APIs)
+2. Criar os arquivos `.env` automaticamente
+3. Construir e iniciar os containers
+
+### Instalação Manual
+
+1. **Clone e configure:**
 ```bash
+git clone https://github.com/GuiRCosta/metamanager.git
+cd metamanager
 cp .env.example .env
-nano .env  # Preencha com seus valores
+nano .env
 ```
 
-3. **Configure o backend:**
+2. **Configure o backend:**
 ```bash
 cp backend/.env.example backend/.env
-nano backend/.env  # Adicione suas chaves da Meta e OpenAI
+nano backend/.env
 ```
 
-4. **Inicie os containers:**
+3. **Inicie:**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 5. **Acesse:**
