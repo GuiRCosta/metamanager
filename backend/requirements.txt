@@ -7,3 +7,4 @@ python-dotenv==1.0.1
 openai==1.50.0
 slowapi==0.1.9
 python-multipart==0.0.9
+agno==1.4.5

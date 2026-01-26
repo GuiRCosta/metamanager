@@ -9,17 +9,19 @@ interface ChatInputProps {
   onSend: (message: string) => void
   isLoading?: boolean
   placeholder?: string
+  disabled?: boolean
 }
 
 export function ChatInput({
   onSend,
   isLoading = false,
   placeholder = "Digite sua mensagem...",
+  disabled = false,
 }: ChatInputProps) {
   const [input, setInput] = useState("")
 
   const handleSend = () => {
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading || disabled) return
     onSend(input.trim())
     setInput("")
   }
@@ -38,10 +40,10 @@ export function ChatInput({
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
         className="flex-1"
       />
-      <Button onClick={handleSend} disabled={!input.trim() || isLoading}>
+      <Button onClick={handleSend} disabled={!input.trim() || isLoading || disabled}>
         {isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (

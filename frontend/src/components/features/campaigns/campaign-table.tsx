@@ -34,16 +34,19 @@ interface CampaignTableProps {
   campaigns: Campaign[]
   onStatusChange?: (id: string, status: CampaignStatus) => void
   onDelete?: (id: string) => void
+  onDuplicate?: (id: string) => void
+  onSelectionChange?: (selectedIds: string[]) => void
+  selectedIds?: string[]
 }
 
 const statusConfig: Record<
   CampaignStatus,
-  { label: string; variant: "default" | "secondary" | "outline" | "destructive" }
+  { label: string; className: string }
 > = {
-  ACTIVE: { label: "Ativa", variant: "default" },
-  PAUSED: { label: "Pausada", variant: "secondary" },
-  ARCHIVED: { label: "Arquivada", variant: "outline" },
-  DRAFT: { label: "Rascunho", variant: "outline" },
+  ACTIVE: { label: "Ativa", className: "bg-green-500 text-white hover:bg-green-600" },
+  PAUSED: { label: "Pausada", className: "bg-yellow-500 text-white hover:bg-yellow-600" },
+  ARCHIVED: { label: "Arquivada", className: "bg-gray-400 text-white hover:bg-gray-500" },
+  DRAFT: { label: "Rascunho", className: "bg-gray-300 text-gray-700 hover:bg-gray-400" },
 }
 
 const objectiveLabels: Record<string, string> = {
@@ -59,8 +62,21 @@ export function CampaignTable({
   campaigns,
   onStatusChange,
   onDelete,
+  onDuplicate,
+  onSelectionChange,
+  selectedIds: controlledSelectedIds,
 }: CampaignTableProps) {
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>([])
+
+  // Use controlled or uncontrolled selection
+  const selectedIds = controlledSelectedIds ?? internalSelectedIds
+  const setSelectedIds = (ids: string[] | ((prev: string[]) => string[])) => {
+    const newIds = typeof ids === "function" ? ids(selectedIds) : ids
+    if (controlledSelectedIds === undefined) {
+      setInternalSelectedIds(newIds)
+    }
+    onSelectionChange?.(newIds)
+  }
 
   const toggleSelectAll = () => {
     if (selectedIds.length === campaigns.length) {
@@ -71,9 +87,10 @@ export function CampaignTable({
   }
 
   const toggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    )
+    const newIds = selectedIds.includes(id)
+      ? selectedIds.filter((i) => i !== id)
+      : [...selectedIds, id]
+    setSelectedIds(newIds)
   }
 
   const handleToggleStatus = (campaign: Campaign) => {
@@ -131,7 +148,7 @@ export function CampaignTable({
                   {objectiveLabels[campaign.objective] || campaign.objective}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={statusConfig[campaign.status].variant}>
+                  <Badge className={statusConfig[campaign.status].className}>
                     {statusConfig[campaign.status].label}
                   </Badge>
                 </TableCell>
@@ -169,7 +186,7 @@ export function CampaignTable({
                           </>
                         )}
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onDuplicate?.(campaign.id)}>
                         <Copy className="mr-2 h-4 w-4" />
                         Duplicar
                       </DropdownMenuItem>

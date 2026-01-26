@@ -7,12 +7,17 @@ interface UseChatOptions {
   onError?: (error: Error) => void
 }
 
+interface MessageContext {
+  ad_account_id?: string
+  ad_account_name?: string
+}
+
 export function useChat(options?: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, context?: MessageContext) => {
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
@@ -27,7 +32,7 @@ export function useChat(options?: UseChatOptions) {
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: content }),
+          body: JSON.stringify({ message: content, context }),
         })
 
         if (!response.ok) {

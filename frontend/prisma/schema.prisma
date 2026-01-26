@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -29,7 +28,7 @@ model Campaign {
   metaId         String           @unique
   name           String
   objective      String
-  status         CampaignStatus   @default(PAUSED)
+  status         String           @default("PAUSED")
   dailyBudget    Float?
   lifetimeBudget Float?
   adSets         AdSet[]
@@ -64,64 +63,64 @@ model CampaignMetric {
 }
 
 model AdSet {
-  id          String         @id @default(uuid())
+  id          String   @id @default(uuid())
   campaignId  String
-  campaign    Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  metaId      String         @unique
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  metaId      String   @unique
   name        String
-  status      CampaignStatus @default(PAUSED)
+  status      String   @default("PAUSED")
   dailyBudget Float?
-  targeting   Json?
+  targeting   String?
   ads         Ad[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([campaignId])
   @@map("ad_sets")
 }
 
 model Ad {
-  id        String         @id @default(uuid())
+  id        String   @id @default(uuid())
   adSetId   String
-  adSet     AdSet          @relation(fields: [adSetId], references: [id], onDelete: Cascade)
-  metaId    String         @unique
+  adSet     AdSet    @relation(fields: [adSetId], references: [id], onDelete: Cascade)
+  metaId    String   @unique
   name      String
-  status    CampaignStatus @default(PAUSED)
-  creative  Json?
+  status    String   @default("PAUSED")
+  creative  String?
   mediaUrl  String?
   mediaType String?
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([adSetId])
   @@map("ads")
 }
 
 model Settings {
-  id                     String   @id @default(uuid())
-  userId                 String   @unique
-  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  monthlyBudgetLimit     Float    @default(5000)
-  alertAt50Percent       Boolean  @default(true)
-  alertAt80Percent       Boolean  @default(true)
-  alertAt100Percent      Boolean  @default(true)
-  alertOnProjectedOverrun Boolean @default(true)
-  conversionGoal         Int?
-  roasGoal               Float?
-  cpcMaxLimit            Float?
-  ctrMinLimit            Float?
-  whatsappEnabled        Boolean  @default(false)
-  whatsappNumber         String?
-  dailyReportTime        String   @default("09:00")
-  sendDailyReports       Boolean  @default(true)
-  sendImmediateAlerts    Boolean  @default(true)
-  sendSuggestions        Boolean  @default(true)
-  sendStatusChanges      Boolean  @default(true)
-  metaAccessToken        String?
-  metaAdAccountId        String?
-  metaPageId             String?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                      String   @id @default(uuid())
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyBudgetLimit      Float    @default(5000)
+  alertAt50Percent        Boolean  @default(true)
+  alertAt80Percent        Boolean  @default(true)
+  alertAt100Percent       Boolean  @default(true)
+  alertOnProjectedOverrun Boolean  @default(true)
+  conversionGoal          Int?
+  roasGoal                Float?
+  cpcMaxLimit             Float?
+  ctrMinLimit             Float?
+  whatsappEnabled         Boolean  @default(false)
+  whatsappNumber          String?
+  dailyReportTime         String   @default("09:00")
+  sendDailyReports        Boolean  @default(true)
+  sendImmediateAlerts     Boolean  @default(true)
+  sendSuggestions         Boolean  @default(true)
+  sendStatusChanges       Boolean  @default(true)
+  metaAccessToken         String?
+  metaAdAccountId         String?
+  metaPageId              String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@map("settings")
 }
@@ -130,7 +129,7 @@ model Alert {
   id           String    @id @default(uuid())
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type         AlertType
+  type         String    @default("info")
   priority     String    @default("medium")
   title        String
   message      String
@@ -144,18 +143,4 @@ model Alert {
   @@index([read])
   @@index([createdAt])
   @@map("alerts")
-}
-
-enum CampaignStatus {
-  ACTIVE
-  PAUSED
-  ARCHIVED
-  DRAFT
-}
-
-enum AlertType {
-  error
-  warning
-  info
-  success
 }

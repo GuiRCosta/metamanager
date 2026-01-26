@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Campanhas", href: "/campaigns", icon: Megaphone },
   { name: "Agente IA", href: "/agent", icon: MessageSquare },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
@@ -41,7 +41,7 @@ export function Sidebar({ budgetUsed = 0, budgetLimit = 5000 }: SidebarProps) {
   return (
     <div className="flex h-full w-64 flex-col border-r bg-background">
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <Megaphone className="h-6 w-6 text-primary" />
           <span className="font-semibold">Campaign Manager</span>
         </Link>

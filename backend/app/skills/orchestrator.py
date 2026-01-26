@@ -1,0 +1,260 @@
+"""
+Campaign Orchestrator - Coordena todos os skills de campanha.
+"""
+
+from typing import Optional
+from agno.agent import Agent
+from agno.models.openai import OpenAIChat
+
+from app.config import get_settings
+from app.skills.campaign_creator import create_campaign_creator_agent
+from app.skills.campaign_editor import create_campaign_editor_agent
+from app.skills.audience_manager import create_audience_manager_agent
+from app.skills.creative_manager import create_creative_manager_agent
+from app.skills.budget_optimizer import create_budget_optimizer_agent
+from app.skills.performance_analyzer import create_performance_analyzer_agent
+from app.skills.report_generator import create_report_generator_agent
+
+settings = get_settings()
+
+
+class CampaignOrchestrator:
+    """
+    Orquestrador central que roteia mensagens para os skills apropriados.
+
+    Arquitetura:
+    - Campaign Creator: Criação de campanhas, ad sets, ads
+    - Campaign Editor: Edição, ativação, pausa, duplicação
+    - Audience Manager: Targeting, interesses, localizações
+    - Creative Manager: Criativos e formatos de anúncio
+    - Budget Optimizer: Orçamento e alocação de verba
+    - Performance Analyzer: Análise de métricas
+    - Report Generator: Geração de relatórios
+    """
+
+    # Palavras-chave para roteamento
+    INTENT_KEYWORDS = {
+        "creator": [
+            "criar", "nova", "novo", "adicionar", "lançar",
+            "create", "new", "launch", "iniciar",
+        ],
+        "editor": [
+            "editar", "alterar", "modificar", "atualizar",
+            "pausar", "ativar", "arquivar", "deletar", "excluir",
+            "duplicar", "copiar", "clonar", "status",
+            "edit", "update", "pause", "activate", "delete",
+        ],
+        "audience": [
+            "público", "audiência", "targeting", "segmentação",
+            "interesse", "interesses", "localização", "local",
+            "idade", "gênero", "demográfico", "alcance",
+            "audience", "target", "location", "interest",
+        ],
+        "creative": [
+            "criativo", "imagem", "vídeo", "carrossel",
+            "formato", "anúncio", "visual", "mídia",
+            "creative", "image", "video", "format",
+        ],
+        "budget": [
+            "orçamento", "budget", "gasto", "gastar",
+            "dinheiro", "investimento", "custo", "verba",
+            "realocar", "distribuir", "limite", "projeção",
+        ],
+        "analyzer": [
+            "analisar", "análise", "métrica", "performance",
+            "desempenho", "comparar", "comparação", "tendência",
+            "ctr", "cpc", "cpm", "roas", "conversão",
+            "analyze", "metrics", "trend", "compare",
+        ],
+        "reporter": [
+            "relatório", "report", "resumo", "summary",
+            "exportar", "gerar relatório", "visão geral",
+            "overview", "export", "dashboard",
+        ],
+    }
+
+    def __init__(self):
+        """Inicializa o orquestrador com todos os skills."""
+        self._skills = {}
+        self._initialize_skills()
+
+    def _initialize_skills(self):
+        """Inicializa os skills sob demanda."""
+        # Skills são criados sob demanda para economizar recursos
+        pass
+
+    def _get_skill(self, skill_name: str) -> Agent:
+        """Obtém ou cria um skill."""
+        if skill_name not in self._skills:
+            skill_creators = {
+                "creator": create_campaign_creator_agent,
+                "editor": create_campaign_editor_agent,
+                "audience": create_audience_manager_agent,
+                "creative": create_creative_manager_agent,
+                "budget": create_budget_optimizer_agent,
+                "analyzer": create_performance_analyzer_agent,
+                "reporter": create_report_generator_agent,
+            }
+            if skill_name in skill_creators:
+                self._skills[skill_name] = skill_creators[skill_name]()
+        return self._skills.get(skill_name)
+
+    def _detect_intent(self, message: str) -> str:
+        """Detecta a intenção da mensagem e retorna o skill apropriado."""
+        message_lower = message.lower()
+
+        scores = {}
+        for intent, keywords in self.INTENT_KEYWORDS.items():
+            score = sum(1 for kw in keywords if kw in message_lower)
+            scores[intent] = score
+
+        max_score = max(scores.values()) if scores else 0
+
+        if max_score == 0:
+            # Default: Performance Analyzer para perguntas gerais
+            return "analyzer"
+
+        # Retorna o primeiro intent com score máximo
+        for intent, score in scores.items():
+            if score == max_score:
+                return intent
+
+        return "analyzer"
+
+    def _get_skill_name(self, intent: str) -> str:
+        """Retorna o nome amigável do skill."""
+        names = {
+            "creator": "Campaign Creator",
+            "editor": "Campaign Editor",
+            "audience": "Audience Manager",
+            "creative": "Creative Manager",
+            "budget": "Budget Optimizer",
+            "analyzer": "Performance Analyzer",
+            "reporter": "Report Generator",
+        }
+        return names.get(intent, "Assistant")
+
+    def _generate_suggestions(self, intent: str) -> list[str]:
+        """Gera sugestões de próximas perguntas baseado no skill atual."""
+        suggestions_map = {
+            "creator": [
+                "Crie uma campanha de tráfego",
+                "Quais objetivos de campanha existem?",
+                "Criar ad set com targeting personalizado",
+            ],
+            "editor": [
+                "Liste minhas campanhas",
+                "Pause a campanha X",
+                "Duplique a campanha Y",
+            ],
+            "audience": [
+                "Busque interesses sobre fitness",
+                "Qual o tamanho do público em São Paulo?",
+                "Sugira targeting para e-commerce",
+            ],
+            "creative": [
+                "Qual formato usar para Stories?",
+                "Melhores práticas para vídeo",
+                "Especificações de imagem para Feed",
+            ],
+            "budget": [
+                "Como está distribuído meu orçamento?",
+                "Quais campanhas devo aumentar o budget?",
+                "Projeção de gastos do mês",
+            ],
+            "analyzer": [
+                "Analise a performance das campanhas",
+                "Compare minhas campanhas ativas",
+                "Qual campanha tem melhor CTR?",
+            ],
+            "reporter": [
+                "Gere um relatório de performance",
+                "Resumo de gastos do mês",
+                "Relatório de limites da conta",
+            ],
+        }
+        return suggestions_map.get(intent, suggestions_map["analyzer"])
+
+    async def process_message(
+        self,
+        message: str,
+        context: Optional[dict] = None,
+    ) -> dict:
+        """
+        Processa uma mensagem do usuário roteando para o skill apropriado.
+
+        Args:
+            message: Mensagem do usuário
+            context: Contexto adicional (opcional)
+
+        Returns:
+            dict com response, agent_type e suggestions
+        """
+        # Detectar intenção
+        intent = self._detect_intent(message)
+
+        # Obter o skill apropriado
+        skill = self._get_skill(intent)
+
+        if not skill:
+            return {
+                "response": "Desculpe, não consegui processar sua solicitação.",
+                "agent_type": "error",
+                "suggestions": self._generate_suggestions("analyzer"),
+            }
+
+        try:
+            # Executar o skill
+            response = await skill.arun(message)
+
+            # Extrair conteúdo da resposta
+            content = ""
+            if hasattr(response, "content"):
+                content = response.content
+            elif isinstance(response, str):
+                content = response
+            else:
+                content = str(response)
+
+            return {
+                "response": content,
+                "agent_type": self._get_skill_name(intent),
+                "suggestions": self._generate_suggestions(intent),
+            }
+
+        except Exception as e:
+            return {
+                "response": f"Erro ao processar: {str(e)}",
+                "agent_type": "error",
+                "suggestions": self._generate_suggestions("analyzer"),
+            }
+
+    async def get_optimization(self, campaign_id: str) -> dict:
+        """Obtém sugestões de otimização para uma campanha."""
+        message = f"Analise e sugira otimizações para a campanha {campaign_id}"
+        skill = self._get_skill("budget")
+        response = await skill.arun(message)
+        return {
+            "response": response.content if hasattr(response, "content") else str(response),
+            "agent_type": "Budget Optimizer",
+        }
+
+    async def analyze_campaign(self, campaign_id: str) -> dict:
+        """Analisa a performance de uma campanha."""
+        message = f"Faça uma análise completa da performance da campanha {campaign_id}"
+        skill = self._get_skill("analyzer")
+        response = await skill.arun(message)
+        return {
+            "response": response.content if hasattr(response, "content") else str(response),
+            "agent_type": "Performance Analyzer",
+        }
+
+    async def get_budget_advice(self) -> dict:
+        """Obtém recomendações de orçamento."""
+        message = "Analise a distribuição de orçamento e faça recomendações"
+        skill = self._get_skill("budget")
+        response = await skill.arun(message)
+        return {
+            "response": response.content if hasattr(response, "content") else str(response),
+            "agent_type": "Budget Optimizer",
+        }

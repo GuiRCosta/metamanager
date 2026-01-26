@@ -8,7 +8,8 @@ export type CampaignObjective =
   | "OUTCOME_AWARENESS"
   | "OUTCOME_APP_PROMOTION"
 
-export type AlertType = "error" | "warning" | "info" | "success"
+export type AlertType = "budget" | "performance" | "status" | "optimization"
+export type AlertPriority = "low" | "medium" | "high" | "critical"
 
 export interface Campaign {
   id: string
@@ -18,6 +19,25 @@ export interface Campaign {
   status: CampaignStatus
   dailyBudget: number | null
   lifetimeBudget: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdSet {
+  id: string
+  name: string
+  status: string
+  dailyBudget: number | null
+  targeting: Record<string, unknown> | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Ad {
+  id: string
+  name: string
+  status: string
+  creative: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
 }
@@ -50,13 +70,13 @@ export interface DashboardMetrics {
 export interface Alert {
   id: string
   type: AlertType
-  priority: string
+  priority: AlertPriority
   title: string
   message: string
-  campaignId: string | null
-  campaignName: string | null
+  campaign_id?: string
+  campaign_name?: string
   read: boolean
-  createdAt: string
+  created_at: string
 }
 
 export interface Settings {
@@ -95,4 +115,67 @@ export interface User {
   id: string
   name: string | null
   email: string
+}
+
+// ========================================
+// Targeting Types
+// ========================================
+
+export interface Interest {
+  id: string
+  name: string
+  audience_size_lower_bound: number
+  audience_size_upper_bound: number
+  path: string[]
+  topic?: string
+}
+
+export interface Location {
+  key: string
+  name: string
+  type: string
+  country_code?: string
+  country_name?: string
+  region?: string
+  region_id?: number
+  supports_city: boolean
+  supports_region: boolean
+}
+
+export interface TargetingCategory {
+  id: string
+  name: string
+  type?: string
+  path?: string[]
+  audience_size?: number
+}
+
+// ========================================
+// Analytics Types
+// ========================================
+
+export type BreakdownType =
+  | "age"
+  | "gender"
+  | "country"
+  | "publisher_platform"
+  | "device_platform"
+
+export interface BreakdownItem {
+  dimension: string
+  value: string
+  spend: number
+  impressions: number
+  clicks: number
+  reach: number
+  conversions: number
+  ctr: number
+  cpc: number
+  cpm: number
+}
+
+export interface ReachEstimate {
+  users_lower_bound: number
+  users_upper_bound: number
+  estimate_ready: boolean
 }

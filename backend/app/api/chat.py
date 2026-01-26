@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException
 
 from app.models.chat import ChatRequest, ChatResponse
-from app.agents.orchestrator import AgentOrchestrator
+from app.skills.orchestrator import CampaignOrchestrator
 
 router = APIRouter()
-orchestrator = AgentOrchestrator()
+orchestrator = CampaignOrchestrator()
 
 
 @router.post("/chat", response_model=ChatResponse)

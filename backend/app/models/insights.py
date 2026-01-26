@@ -17,14 +17,14 @@ class MetricData(BaseModel):
 class CampaignInsights(BaseModel):
     campaign_id: str
     campaign_name: str
-    date_start: date
-    date_stop: date
-    spend: float
-    impressions: int
-    clicks: int
-    conversions: int
-    ctr: float
-    cpc: float
+    date_start: Optional[date] = None
+    date_stop: Optional[date] = None
+    spend: float = 0
+    impressions: int = 0
+    clicks: int = 0
+    conversions: int = 0
+    ctr: float = 0
+    cpc: float = 0
     roas: Optional[float] = None
 
 

@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     # Meta API
     meta_access_token: str = ""
     meta_ad_account_id: str = ""
+    meta_business_id: str = ""
     meta_page_id: str = ""
     meta_api_version: str = "v24.0"
 

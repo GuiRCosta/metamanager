@@ -1,12 +1,14 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { Bot, Sparkles } from "lucide-react"
+import { Bot, Sparkles, Building2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
 import { ChatMessage } from "@/components/features/chat/chat-message"
 import { ChatInput } from "@/components/features/chat/chat-input"
 import { useChat } from "@/hooks/use-chat"
+import { useAdAccount } from "@/contexts/ad-account-context"
 
 const suggestions = [
   "Como está a performance das minhas campanhas?",
@@ -16,6 +18,7 @@ const suggestions = [
 ]
 
 export default function AgentPage() {
+  const { selectedAccount } = useAdAccount()
   const { messages, isLoading, sendMessage } = useChat()
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -25,20 +28,43 @@ export default function AgentPage() {
     }
   }, [messages])
 
+  const handleSendMessage = (message: string) => {
+    // Pass account context with the message
+    const context = selectedAccount
+      ? {
+          ad_account_id: selectedAccount.account_id,
+          ad_account_name: selectedAccount.name,
+        }
+      : undefined
+    sendMessage(message, context)
+  }
+
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col">
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Agente IA</h1>
         <p className="text-muted-foreground">
-          Converse com o agente para obter insights e recomendações
+          {selectedAccount ? (
+            <>Conta: <span className="font-medium">{selectedAccount.name}</span></>
+          ) : (
+            "Selecione uma conta de anúncios"
+          )}
         </p>
       </div>
 
       <Card className="flex flex-1 flex-col overflow-hidden">
         <CardHeader className="border-b px-6 py-4">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Bot className="h-5 w-5" />
-            Assistente de Campanhas
+          <CardTitle className="flex items-center justify-between text-lg">
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              Assistente de Campanhas
+            </div>
+            {selectedAccount && (
+              <Badge variant="outline" className="font-normal">
+                <Building2 className="mr-1 h-3 w-3" />
+                {selectedAccount.name}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
 
@@ -55,13 +81,13 @@ export default function AgentPage() {
                 <p className="mb-6 max-w-md text-sm text-muted-foreground">
                   Sou seu assistente especializado em campanhas Meta Ads. Posso
                   analisar performance, otimizar orçamentos e fornecer insights
-                  valiosos.
+                  valiosos{selectedAccount ? ` para a conta "${selectedAccount.name}"` : ""}.
                 </p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {suggestions.map((suggestion, index) => (
                     <button
                       key={index}
-                      onClick={() => sendMessage(suggestion)}
+                      onClick={() => handleSendMessage(suggestion)}
                       className="rounded-full border bg-background px-4 py-2 text-sm transition-colors hover:bg-muted"
                     >
                       {suggestion}
@@ -92,9 +118,14 @@ export default function AgentPage() {
 
           <div className="border-t p-4">
             <ChatInput
-              onSend={sendMessage}
+              onSend={handleSendMessage}
               isLoading={isLoading}
-              placeholder="Pergunte sobre suas campanhas..."
+              placeholder={
+                selectedAccount
+                  ? `Pergunte sobre a conta "${selectedAccount.name}"...`
+                  : "Selecione uma conta para começar..."
+              }
+              disabled={!selectedAccount}
             />
           </div>
         </CardContent>
