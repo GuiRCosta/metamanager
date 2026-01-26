@@ -744,12 +744,19 @@ class MetaAPI:
         self,
         date_preset: str = "last_7d",
         include_archived: bool = False,
+        max_campaigns: int = 20,
     ) -> list[dict]:
         """Obtém métricas de todos os ad sets para análise."""
-        campaigns = await self.get_campaigns(include_archived=include_archived)
-        all_adsets = []
+        import asyncio
 
-        for campaign in campaigns:
+        campaigns = await self.get_campaigns(include_archived=include_archived)
+        # Limit campaigns and prioritize active ones
+        active_campaigns = [c for c in campaigns if c.get("status") == "ACTIVE"]
+        other_campaigns = [c for c in campaigns if c.get("status") != "ACTIVE"]
+        limited_campaigns = (active_campaigns + other_campaigns)[:max_campaigns]
+
+        async def process_campaign(campaign: dict) -> list[dict]:
+            results = []
             try:
                 adsets = await self.get_ad_sets(campaign["id"])
                 for adset in adsets:
@@ -766,9 +773,23 @@ class MetaAPI:
                         adset_data["insights"] = insights
                     except Exception:
                         adset_data["insights"] = None
-                    all_adsets.append(adset_data)
+                    results.append(adset_data)
             except Exception:
-                continue
+                pass
+            return results
+
+        # Process campaigns in parallel (batches of 5 to avoid rate limits)
+        all_adsets = []
+        batch_size = 5
+        for i in range(0, len(limited_campaigns), batch_size):
+            batch = limited_campaigns[i:i + batch_size]
+            batch_results = await asyncio.gather(
+                *[process_campaign(c) for c in batch],
+                return_exceptions=True
+            )
+            for result in batch_results:
+                if isinstance(result, list):
+                    all_adsets.extend(result)
 
         return all_adsets
 
@@ -776,12 +797,19 @@ class MetaAPI:
         self,
         date_preset: str = "last_7d",
         include_archived: bool = False,
+        max_campaigns: int = 20,
     ) -> list[dict]:
         """Obtém métricas de todos os anúncios para análise."""
-        campaigns = await self.get_campaigns(include_archived=include_archived)
-        all_ads = []
+        import asyncio
 
-        for campaign in campaigns:
+        campaigns = await self.get_campaigns(include_archived=include_archived)
+        # Limit campaigns and prioritize active ones
+        active_campaigns = [c for c in campaigns if c.get("status") == "ACTIVE"]
+        other_campaigns = [c for c in campaigns if c.get("status") != "ACTIVE"]
+        limited_campaigns = (active_campaigns + other_campaigns)[:max_campaigns]
+
+        async def process_campaign(campaign: dict) -> list[dict]:
+            results = []
             try:
                 adsets = await self.get_ad_sets(campaign["id"])
                 for adset in adsets:
@@ -803,11 +831,25 @@ class MetaAPI:
                                 ad_data["insights"] = insights
                             except Exception:
                                 ad_data["insights"] = None
-                            all_ads.append(ad_data)
+                            results.append(ad_data)
                     except Exception:
                         continue
             except Exception:
-                continue
+                pass
+            return results
+
+        # Process campaigns in parallel (batches of 5 to avoid rate limits)
+        all_ads = []
+        batch_size = 5
+        for i in range(0, len(limited_campaigns), batch_size):
+            batch = limited_campaigns[i:i + batch_size]
+            batch_results = await asyncio.gather(
+                *[process_campaign(c) for c in batch],
+                return_exceptions=True
+            )
+            for result in batch_results:
+                if isinstance(result, list):
+                    all_ads.extend(result)
 
         return all_ads
 

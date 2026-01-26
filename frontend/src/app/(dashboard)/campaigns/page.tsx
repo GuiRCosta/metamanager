@@ -115,9 +115,14 @@ export default function CampaignsPage() {
 
   // Fetch campaigns when selected account changes
   useEffect(() => {
-    if (selectedAccount && !accountLoading) {
-      fetchCampaigns()
+    if (accountLoading) return
+
+    if (!selectedAccount) {
+      setLoading(false)
+      return
     }
+
+    fetchCampaigns()
   }, [selectedAccount?.account_id, accountLoading])
 
   const filteredCampaigns = campaigns.filter((campaign) => {

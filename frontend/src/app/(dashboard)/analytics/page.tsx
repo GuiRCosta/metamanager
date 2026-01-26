@@ -192,16 +192,22 @@ export default function AnalyticsPage() {
   }
 
   useEffect(() => {
-    if (selectedAccount && !accountLoading) {
-      fetchMetrics()
-      // Reset data when period changes
-      setCampaignsInsights([])
-      setTrendsData([])
-      setAdSetsInsights([])
-      setAdsInsights([])
-      // Refetch for active tab after state reset
-      setTimeout(() => refetchActiveTab(), 0)
+    if (accountLoading) return
+
+    if (!selectedAccount) {
+      // No account selected - stop loading
+      setLoading(false)
+      return
     }
+
+    fetchMetrics()
+    // Reset data when period changes
+    setCampaignsInsights([])
+    setTrendsData([])
+    setAdSetsInsights([])
+    setAdsInsights([])
+    // Refetch for active tab after state reset
+    setTimeout(() => refetchActiveTab(), 0)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccount?.account_id, accountLoading, period])
 
@@ -244,6 +250,22 @@ export default function AnalyticsPage() {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!selectedAccount) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+          <p className="text-muted-foreground">Selecione uma conta de anúncios</p>
+        </div>
+        <div className="flex h-[30vh] items-center justify-center rounded-lg border border-dashed">
+          <p className="text-muted-foreground">
+            Selecione uma conta de anúncios no menu superior para ver as métricas
+          </p>
+        </div>
       </div>
     )
   }
@@ -1073,23 +1095,23 @@ export default function AnalyticsPage() {
               ) : (
                 <div className="space-y-6">
                   {/* Simple Bar Chart */}
-                  <div className="flex items-end gap-1 h-[200px]">
+                  <div className="flex items-end gap-1" style={{ height: trendsData.length > 1 ? "200px" : "100px" }}>
                     {trendsData.map((day, index) => {
-                      const height = (day.spend / maxTrendSpend) * 100
+                      const heightPx = Math.max((day.spend / maxTrendSpend) * (trendsData.length > 1 ? 180 : 80), 4)
                       const prevDay = index > 0 ? trendsData[index - 1] : null
-                      const change = prevDay
+                      const change = prevDay && prevDay.spend > 0
                         ? ((day.spend - prevDay.spend) / prevDay.spend) * 100
                         : 0
 
                       return (
                         <div
                           key={day.date}
-                          className="flex-1 flex flex-col items-center gap-1 group"
+                          className="flex-1 flex flex-col items-center gap-1 group max-w-[80px]"
                         >
-                          <div className="relative w-full flex flex-col items-center">
+                          <div className="relative w-full flex flex-col items-center justify-end" style={{ height: trendsData.length > 1 ? "180px" : "80px" }}>
                             <div
                               className="w-full bg-primary rounded-t transition-all hover:bg-primary/80"
-                              style={{ height: `${Math.max(height, 2)}%` }}
+                              style={{ height: `${heightPx}px` }}
                               title={`${formatDate(day.date)}: ${formatCurrency(day.spend)}`}
                             />
                             <div className="absolute -top-6 hidden group-hover:block bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">

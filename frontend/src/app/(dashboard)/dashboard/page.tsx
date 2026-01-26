@@ -50,9 +50,14 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    if (selectedAccount && !accountLoading) {
-      fetchData()
+    if (accountLoading) return
+
+    if (!selectedAccount) {
+      setLoading(false)
+      return
     }
+
+    fetchData()
   }, [selectedAccount?.account_id, accountLoading])
 
   const getPriorityBadgeVariant = (priority: string) => {
@@ -85,6 +90,22 @@ export default function DashboardPage() {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!selectedAccount) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Selecione uma conta de anúncios</p>
+        </div>
+        <div className="flex h-[30vh] items-center justify-center rounded-lg border border-dashed">
+          <p className="text-muted-foreground">
+            Selecione uma conta de anúncios no menu superior para ver as métricas
+          </p>
+        </div>
       </div>
     )
   }
