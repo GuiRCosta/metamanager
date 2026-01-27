@@ -11,6 +11,8 @@ from app.skills.tools import (
     get_campaigns_spend_comparison,
     get_budget_recommendations,
     update_campaign_budget,
+    list_campaigns,
+    get_campaign_details,
 )
 
 settings = get_settings()
@@ -57,6 +59,8 @@ def create_budget_optimizer_agent() -> Agent:
             get_campaigns_spend_comparison,
             get_budget_recommendations,
             update_campaign_budget,
+            list_campaigns,
+            get_campaign_details,
         ],
         instructions=SYSTEM_PROMPT,
         markdown=True,

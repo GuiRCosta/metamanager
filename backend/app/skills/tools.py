@@ -9,9 +9,12 @@ Usamos _run_async() para executar código assíncrono dentro de funções síncr
 
 import asyncio
 import json
+import logging
 from contextvars import ContextVar
 from typing import Optional
 from app.tools.meta_api import MetaAPI
+
+logger = logging.getLogger(__name__)
 
 
 def _run_async(coro):
@@ -233,16 +236,18 @@ def list_campaigns(
         if status:
             filtered = [c for c in campaigns if c.get("effective_status") == status]
 
-        result = [
-            {
+        result = []
+        for c in filtered:
+            raw_budget = c.get("daily_budget")
+            converted_budget = int(raw_budget) / 100 if raw_budget else None
+            logger.info(f"Campaign '{c['name']}': raw daily_budget={raw_budget}, converted={converted_budget}")
+            result.append({
                 "id": c["id"],
                 "name": c["name"],
                 "objective": c.get("objective"),
                 "status": c.get("effective_status", c.get("status")),
-                "daily_budget": int(c["daily_budget"]) / 100 if c.get("daily_budget") else None,
-            }
-            for c in filtered
-        ]
+                "daily_budget": converted_budget,
+            })
         return json.dumps({"success": True, "campaigns": result, "total": len(result)}, ensure_ascii=False)
 
     try:
@@ -266,6 +271,10 @@ def get_campaign_details(campaign_id: str) -> str:
         campaign = await meta_api.get_campaign(campaign_id)
         ad_sets = await meta_api.get_ad_sets(campaign_id)
 
+        raw_daily = campaign.get("daily_budget")
+        raw_lifetime = campaign.get("lifetime_budget")
+        logger.info(f"Campaign details '{campaign.get('name')}': raw daily_budget={raw_daily}, raw lifetime_budget={raw_lifetime}")
+
         return json.dumps({
             "success": True,
             "campaign": {
@@ -273,8 +282,8 @@ def get_campaign_details(campaign_id: str) -> str:
                 "name": campaign["name"],
                 "objective": campaign.get("objective"),
                 "status": campaign.get("status"),
-                "daily_budget": int(campaign["daily_budget"]) / 100 if campaign.get("daily_budget") else None,
-                "lifetime_budget": int(campaign["lifetime_budget"]) / 100 if campaign.get("lifetime_budget") else None,
+                "daily_budget": int(raw_daily) / 100 if raw_daily else None,
+                "lifetime_budget": int(raw_lifetime) / 100 if raw_lifetime else None,
                 "created_time": campaign.get("created_time"),
             },
             "ad_sets_count": len(ad_sets),

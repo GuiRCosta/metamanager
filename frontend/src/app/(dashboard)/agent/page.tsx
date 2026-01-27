@@ -45,18 +45,7 @@ export default function AgentPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Agente IA</h1>
-        <p className="text-muted-foreground">
-          {selectedAccount ? (
-            <>Conta: <span className="font-medium">{selectedAccount.name}</span></>
-          ) : (
-            "Selecione uma conta de anúncios"
-          )}
-        </p>
-      </div>
-
+    <div className="flex h-[calc(100vh-4rem)] flex-col">
       <Card className="flex flex-1 flex-col overflow-hidden">
         <CardHeader className="border-b px-6 py-4">
           <CardTitle className="flex items-center justify-between text-lg">
