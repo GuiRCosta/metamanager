@@ -2,6 +2,7 @@
 
 # ==========================================
 # Meta Campaign Manager - Script de Instalação
+# Deploy via Docker Swarm + Traefik
 # ==========================================
 
 set -e
@@ -11,7 +12,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${BLUE}"
 echo "╔═══════════════════════════════════════════════════╗"
@@ -29,30 +30,31 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    echo -e "${RED}Docker Compose não encontrado.${NC}"
+if ! docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q "active"; then
+    echo -e "${RED}Docker Swarm não está ativo. Execute: docker swarm init${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Docker e Docker Compose instalados${NC}"
+echo -e "${GREEN}✓ Docker e Docker Swarm ativos${NC}"
 
 # ==========================================
 # Coletar informações
 # ==========================================
 echo ""
 echo -e "${BLUE}=== Configuração do Domínio ===${NC}"
-read -p "Domínio (ex: app.seudominio.com): " DOMAIN
+read -p "Domínio do frontend (ex: app.seudominio.com): " DOMAIN
 
 echo ""
 echo -e "${BLUE}=== Configuração do PostgreSQL ===${NC}"
-read -p "Host do PostgreSQL [postgres]: " POSTGRES_HOST
-POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+echo -e "${YELLOW}O PostgreSQL deve estar acessível na rede Docker.${NC}"
+read -p "Host do PostgreSQL [postgres_postgres]: " POSTGRES_HOST
+POSTGRES_HOST=${POSTGRES_HOST:-postgres_postgres}
 
 read -p "Porta do PostgreSQL [5432]: " POSTGRES_PORT
 POSTGRES_PORT=${POSTGRES_PORT:-5432}
 
-read -p "Usuário do PostgreSQL [metamanager]: " POSTGRES_USER
-POSTGRES_USER=${POSTGRES_USER:-metamanager}
+read -p "Usuário do PostgreSQL [postgres]: " POSTGRES_USER
+POSTGRES_USER=${POSTGRES_USER:-postgres}
 
 read -sp "Senha do PostgreSQL: " POSTGRES_PASSWORD
 echo ""
@@ -62,17 +64,11 @@ POSTGRES_DB=${POSTGRES_DB:-metamanager}
 
 echo ""
 echo -e "${BLUE}=== Configuração do Traefik ===${NC}"
-read -p "Nome da rede do Traefik [traefik-public]: " TRAEFIK_NETWORK
-TRAEFIK_NETWORK=${TRAEFIK_NETWORK:-traefik-public}
+read -p "Nome da rede externa do Traefik [IdevaNet]: " TRAEFIK_NETWORK
+TRAEFIK_NETWORK=${TRAEFIK_NETWORK:-IdevaNet}
 
-read -p "Nome do certresolver [letsencrypt]: " CERTRESOLVER
-CERTRESOLVER=${CERTRESOLVER:-letsencrypt}
-
-echo ""
-echo -e "${BLUE}=== Configuração da Meta API ===${NC}"
-read -p "Meta Access Token: " META_ACCESS_TOKEN
-read -p "Meta Business ID: " META_BUSINESS_ID
-read -p "Meta Ad Account ID (act_xxx): " META_AD_ACCOUNT_ID
+read -p "Nome do certresolver do Traefik [letsencryptresolver]: " CERTRESOLVER
+CERTRESOLVER=${CERTRESOLVER:-letsencryptresolver}
 
 echo ""
 echo -e "${BLUE}=== Configuração do LLM (OpenAI/OpenRouter) ===${NC}"
@@ -80,6 +76,12 @@ read -p "LLM API Key: " LLM_API_KEY
 read -p "LLM Base URL (vazio=OpenAI, OpenRouter=https://openrouter.ai/api/v1): " LLM_BASE_URL
 read -p "LLM Model [gpt-4o-mini]: " LLM_MODEL
 LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+
+echo ""
+echo -e "${BLUE}=== Meta API (opcional - pode configurar via UI depois) ===${NC}"
+read -p "Meta Access Token (vazio para pular): " META_ACCESS_TOKEN
+read -p "Meta Business ID: " META_BUSINESS_ID
+read -p "Meta Ad Account ID (act_xxx): " META_AD_ACCOUNT_ID
 
 echo ""
 echo -e "${BLUE}=== WhatsApp (opcional) ===${NC}"
@@ -106,6 +108,8 @@ echo -e "${YELLOW}Criando arquivo .env...${NC}"
 
 cat > .env << EOF
 # Gerado automaticamente em $(date)
+
+# Domínio
 DOMAIN=${DOMAIN}
 
 # PostgreSQL
@@ -117,36 +121,22 @@ POSTGRES_DB=${POSTGRES_DB}
 
 # NextAuth
 NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-EOF
 
-echo -e "${GREEN}✓ Arquivo .env criado${NC}"
-
-# ==========================================
-# Criar arquivo backend/.env
-# ==========================================
-echo -e "${YELLOW}Criando arquivo backend/.env...${NC}"
-
-cat > backend/.env << EOF
-# Gerado automaticamente em $(date)
-
-# Meta API (opcional - pode configurar via UI em /settings)
-META_ACCESS_TOKEN=${META_ACCESS_TOKEN}
-META_BUSINESS_ID=${META_BUSINESS_ID}
-META_AD_ACCOUNT_ID=${META_AD_ACCOUNT_ID}
-META_API_VERSION=v24.0
-
-# LLM Provider (OpenAI, OpenRouter, ou qualquer API compatível)
+# LLM Provider
 LLM_API_KEY=${LLM_API_KEY}
 LLM_BASE_URL=${LLM_BASE_URL}
 LLM_MODEL=${LLM_MODEL}
 LLM_WHISPER_MODEL=whisper-1
 
-# Frontend URL
-FRONTEND_URL=https://${DOMAIN}
+# Meta API (opcional)
+META_ACCESS_TOKEN=${META_ACCESS_TOKEN}
+META_BUSINESS_ID=${META_BUSINESS_ID}
+META_AD_ACCOUNT_ID=${META_AD_ACCOUNT_ID}
+META_API_VERSION=v24.0
 EOF
 
 if [[ "$ENABLE_WHATSAPP" == "s" || "$ENABLE_WHATSAPP" == "S" ]]; then
-cat >> backend/.env << EOF
+cat >> .env << EOF
 
 # WhatsApp (Evolution API)
 EVOLUTION_API_URL=${EVOLUTION_API_URL}
@@ -155,61 +145,112 @@ EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE}
 EOF
 fi
 
-echo -e "${GREEN}✓ Arquivo backend/.env criado${NC}"
+echo -e "${GREEN}✓ Arquivo .env criado${NC}"
 
 # ==========================================
-# Atualizar docker-compose com rede correta
+# Atualizar docker-stack.yml com rede e certresolver
 # ==========================================
-echo -e "${YELLOW}Atualizando docker-compose.yml...${NC}"
+echo -e "${YELLOW}Configurando docker-stack.yml...${NC}"
 
-sed -i.bak "s/traefik-public/${TRAEFIK_NETWORK}/g" docker-compose.yml
-sed -i.bak "s/certresolver=letsencrypt/certresolver=${CERTRESOLVER}/g" docker-compose.yml
-rm -f docker-compose.yml.bak
+sed -i.bak "s/IdevaNet/${TRAEFIK_NETWORK}/g" docker-stack.yml
+sed -i.bak "s/letsencryptresolver/${CERTRESOLVER}/g" docker-stack.yml
+rm -f docker-stack.yml.bak
 
-echo -e "${GREEN}✓ docker-compose.yml atualizado${NC}"
+echo -e "${GREEN}✓ docker-stack.yml configurado${NC}"
 
 # ==========================================
-# Verificar/criar rede
+# Verificar rede Docker
 # ==========================================
 echo ""
 echo -e "${YELLOW}Verificando rede Docker...${NC}"
 
 if ! docker network ls | grep -q "${TRAEFIK_NETWORK}"; then
-    echo -e "${YELLOW}Rede ${TRAEFIK_NETWORK} não encontrada.${NC}"
-    read -p "Deseja criar? (s/n) [s]: " CREATE_NETWORK
-    CREATE_NETWORK=${CREATE_NETWORK:-s}
-    if [[ "$CREATE_NETWORK" == "s" || "$CREATE_NETWORK" == "S" ]]; then
-        docker network create ${TRAEFIK_NETWORK}
-        echo -e "${GREEN}✓ Rede criada${NC}"
-    fi
-else
-    echo -e "${GREEN}✓ Rede ${TRAEFIK_NETWORK} encontrada${NC}"
+    echo -e "${RED}Rede '${TRAEFIK_NETWORK}' não encontrada.${NC}"
+    echo -e "${YELLOW}Crie a rede com: docker network create --driver overlay ${TRAEFIK_NETWORK}${NC}"
+    exit 1
 fi
 
-# ==========================================
-# Build e deploy
-# ==========================================
-echo ""
-echo -e "${YELLOW}Construindo imagens Docker...${NC}"
-docker compose build
-
-echo ""
-echo -e "${YELLOW}Iniciando containers...${NC}"
-docker compose up -d
+echo -e "${GREEN}✓ Rede ${TRAEFIK_NETWORK} encontrada${NC}"
 
 # ==========================================
-# Aguardar health check
+# Build das imagens locais
+# ==========================================
+echo ""
+echo -e "${YELLOW}Construindo imagem do backend...${NC}"
+docker build -t metamanager-backend:latest ./backend
+echo -e "${GREEN}✓ Backend construído${NC}"
+
+echo ""
+echo -e "${YELLOW}Construindo imagem do frontend...${NC}"
+docker build \
+    --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.${DOMAIN} \
+    -t metamanager-frontend:latest \
+    ./frontend
+echo -e "${GREEN}✓ Frontend construído${NC}"
+
+# ==========================================
+# Deploy via Docker Stack
+# ==========================================
+echo ""
+echo -e "${YELLOW}Fazendo deploy da stack...${NC}"
+
+# Exportar variáveis do .env para o shell
+# Docker Stack não lê .env automaticamente
+export $(grep -v '^#' .env | grep -v '^$' | xargs)
+
+# Deploy usando imagens locais
+REGISTRY="" TAG=latest docker stack deploy -c docker-stack.yml metamanager
+
+echo -e "${GREEN}✓ Stack deployed${NC}"
+
+# ==========================================
+# Forçar uso das imagens locais
+# ==========================================
+echo ""
+echo -e "${YELLOW}Atualizando serviços para imagens locais...${NC}"
+sleep 5
+
+docker service update --image metamanager-backend:latest metamanager_backend
+docker service update --image metamanager-frontend:latest metamanager_frontend
+
+echo -e "${GREEN}✓ Serviços atualizados${NC}"
+
+# ==========================================
+# Aguardar serviços iniciarem
 # ==========================================
 echo ""
 echo -e "${YELLOW}Aguardando serviços iniciarem...${NC}"
-sleep 10
 
-# Verificar status
-if docker compose ps | grep -q "healthy"; then
-    echo -e "${GREEN}✓ Backend está saudável${NC}"
+for i in {1..30}; do
+    BACKEND_REPLICAS=$(docker service ls --filter name=metamanager_backend --format "{{.Replicas}}" 2>/dev/null)
+    FRONTEND_REPLICAS=$(docker service ls --filter name=metamanager_frontend --format "{{.Replicas}}" 2>/dev/null)
+
+    if [[ "$BACKEND_REPLICAS" == "1/1" && "$FRONTEND_REPLICAS" == "1/1" ]]; then
+        echo -e "${GREEN}✓ Todos os serviços estão rodando${NC}"
+        break
+    fi
+
+    if [[ $i -eq 30 ]]; then
+        echo -e "${YELLOW}Timeout. Verifique com: docker service ls${NC}"
+        break
+    fi
+
+    sleep 2
+    echo -n "."
+done
+
+# ==========================================
+# Verificar health
+# ==========================================
+echo ""
+echo -e "${YELLOW}Verificando saúde do backend...${NC}"
+sleep 5
+
+if curl -sf https://api.${DOMAIN}/health > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ Backend respondendo${NC}"
 else
-    echo -e "${YELLOW}Aguardando mais um pouco...${NC}"
-    sleep 20
+    echo -e "${YELLOW}Backend ainda pode estar iniciando. Teste manualmente:${NC}"
+    echo -e "  curl https://api.${DOMAIN}/health"
 fi
 
 # ==========================================
@@ -227,7 +268,15 @@ echo -e "  ${BLUE}Frontend:${NC} https://${DOMAIN}"
 echo -e "  ${BLUE}API:${NC}      https://api.${DOMAIN}"
 echo ""
 echo -e "Comandos úteis:"
-echo -e "  ${YELLOW}docker compose logs -f${NC}     # Ver logs"
-echo -e "  ${YELLOW}docker compose restart${NC}    # Reiniciar"
-echo -e "  ${YELLOW}docker compose down${NC}       # Parar"
+echo -e "  ${YELLOW}docker service ls${NC}                          # Ver serviços"
+echo -e "  ${YELLOW}docker service logs -f metamanager_frontend${NC} # Logs frontend"
+echo -e "  ${YELLOW}docker service logs -f metamanager_backend${NC}  # Logs backend"
+echo -e "  ${YELLOW}docker stack rm metamanager${NC}                 # Remover stack"
+echo ""
+echo -e "Para atualizar após mudanças no código:"
+echo -e "  ${YELLOW}cd $(pwd)${NC}"
+echo -e "  ${YELLOW}docker build -t metamanager-backend:latest ./backend${NC}"
+echo -e "  ${YELLOW}docker build --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.${DOMAIN} -t metamanager-frontend:latest ./frontend${NC}"
+echo -e "  ${YELLOW}docker service update --image metamanager-backend:latest metamanager_backend${NC}"
+echo -e "  ${YELLOW}docker service update --image metamanager-frontend:latest metamanager_frontend${NC}"
 echo ""

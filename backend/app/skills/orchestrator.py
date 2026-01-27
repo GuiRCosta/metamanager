@@ -33,13 +33,29 @@ class CampaignOrchestrator:
     - Report Generator: Geração de relatórios
     """
 
-    # Palavras-chave que indicam ações destrutivas que precisam confirmação
-    DESTRUCTIVE_KEYWORDS = [
-        "todas", "todos", "all", "tudo",
-        "pausar", "pause", "parar",
-        "arquivar", "archive", "deletar", "delete", "excluir",
+    # Intents que modificam dados e precisam de confirmação
+    MODIFYING_INTENTS = {"creator", "editor", "budget"}
+
+    # Palavras-chave que indicam ações de modificação
+    MODIFICATION_KEYWORDS = [
+        # Criar
+        "criar", "nova", "novo", "adicionar", "lançar", "create", "new", "launch",
+        # Editar
+        "editar", "alterar", "modificar", "atualizar", "edit", "update",
+        # Pausar/Ativar
+        "pausar", "ativar", "pause", "activate", "parar",
+        # Deletar/Arquivar
+        "arquivar", "deletar", "excluir", "archive", "delete",
+        # Duplicar
+        "duplicar", "copiar", "clonar", "duplicate",
+        # Orçamento
+        "aumentar", "reduzir", "mudar orçamento", "alterar budget",
+        # Desativar
         "desativar", "disable",
     ]
+
+    # Palavras-chave que indicam ações em massa (mais perigosas)
+    BULK_KEYWORDS = ["todas", "todos", "all", "tudo"]
 
     # Palavras-chave para roteamento
     INTENT_KEYWORDS = {
@@ -110,30 +126,45 @@ class CampaignOrchestrator:
 
     def _requires_confirmation(self, message: str) -> tuple[bool, str]:
         """
-        Verifica se a mensagem indica uma ação destrutiva que precisa confirmação.
+        Verifica se a mensagem indica uma ação que modifica dados.
 
         Returns:
             Tuple (requires_confirmation, warning_message)
         """
         message_lower = message.lower()
 
-        # Contar palavras destrutivas
-        destructive_count = sum(1 for kw in self.DESTRUCTIVE_KEYWORDS if kw in message_lower)
+        has_modification = any(kw in message_lower for kw in self.MODIFICATION_KEYWORDS)
+        if not has_modification:
+            return False, ""
 
-        if destructive_count >= 2:
-            # Detectar tipo de ação
-            if any(w in message_lower for w in ["pausar", "pause", "parar"]):
-                if any(w in message_lower for w in ["todas", "todos", "all", "tudo"]):
-                    return True, "Você está prestes a PAUSAR múltiplas campanhas. Para confirmar, responda 'CONFIRMAR PAUSA'."
+        is_bulk = any(kw in message_lower for kw in self.BULK_KEYWORDS)
 
-            if any(w in message_lower for w in ["arquivar", "archive", "deletar", "delete", "excluir"]):
-                if any(w in message_lower for w in ["todas", "todos", "all", "tudo"]):
-                    return True, "Você está prestes a ARQUIVAR/EXCLUIR múltiplas campanhas. Esta ação é irreversível. Para confirmar, responda 'CONFIRMAR EXCLUSÃO'."
+        if any(w in message_lower for w in ["arquivar", "archive", "deletar", "delete", "excluir"]):
+            if is_bulk:
+                return True, "Você está prestes a **ARQUIVAR/EXCLUIR múltiplas campanhas**. Esta ação é irreversível.\n\nPara confirmar, responda **CONFIRMAR**."
+            return True, f"Você solicitou uma ação de **exclusão/arquivamento**.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-            if any(w in message_lower for w in ["desativar", "disable"]):
-                return True, "Você está prestes a DESATIVAR campanhas. Para confirmar, responda 'CONFIRMAR DESATIVAÇÃO'."
+        if any(w in message_lower for w in ["pausar", "pause", "parar"]):
+            if is_bulk:
+                return True, "Você está prestes a **PAUSAR múltiplas campanhas**.\n\nPara confirmar, responda **CONFIRMAR**."
+            return True, f"Você solicitou **pausar** uma campanha.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        return False, ""
+        if any(w in message_lower for w in ["ativar", "activate"]):
+            return True, f"Você solicitou **ativar** uma campanha.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
+
+        if any(w in message_lower for w in ["criar", "nova", "novo", "create", "new", "launch", "lançar", "adicionar"]):
+            return True, f"Você solicitou **criar** um novo recurso.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
+
+        if any(w in message_lower for w in ["duplicar", "copiar", "clonar", "duplicate"]):
+            return True, f"Você solicitou **duplicar** uma campanha.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
+
+        if any(w in message_lower for w in ["aumentar", "reduzir", "alterar", "modificar", "editar", "atualizar", "mudar"]):
+            return True, f"Você solicitou uma **modificação**.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
+
+        if any(w in message_lower for w in ["desativar", "disable"]):
+            return True, f"Você solicitou **desativar** um recurso.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
+
+        return True, f"Você solicitou uma ação que modifica dados.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
     def _is_confirmation(self, message: str) -> bool:
         """Verifica se a mensagem é uma confirmação."""
@@ -242,6 +273,10 @@ class CampaignOrchestrator:
 
         # Verificar se é uma confirmação de ação pendente
         is_confirmation = self._is_confirmation(message)
+
+        # Se é confirmação com prefixo "CONFIRMAR:", extrair a mensagem original
+        if is_confirmation and message.upper().startswith("CONFIRMAR:"):
+            message = message[len("CONFIRMAR:"):].strip()
 
         # Verificar se precisa de confirmação (exceto se já é uma confirmação)
         if not is_confirmation:

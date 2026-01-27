@@ -30,6 +30,8 @@ class ChatResponse(BaseModel):
     message: str
     agent_type: str
     suggestions: Optional[list[str]] = None
+    requires_confirmation: bool = False
+    pending_action: Optional[str] = None
 
 
 class AgentContext(BaseModel):

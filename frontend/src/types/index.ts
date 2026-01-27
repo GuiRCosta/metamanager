@@ -108,6 +108,8 @@ export interface ChatMessage {
   content: string
   agentType?: string
   suggestions?: string[]
+  requiresConfirmation?: boolean
+  pendingAction?: string
   timestamp: Date
 }
 

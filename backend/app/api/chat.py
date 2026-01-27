@@ -31,6 +31,8 @@ async def chat_with_agent(request: ChatRequest):
             message=result["response"],
             agent_type=result["agent_type"],
             suggestions=result.get("suggestions"),
+            requires_confirmation=result.get("requires_confirmation", False),
+            pending_action=result.get("pending_action"),
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

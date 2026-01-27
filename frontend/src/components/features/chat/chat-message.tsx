@@ -1,20 +1,23 @@
-import { Bot, User } from "lucide-react"
+import { Bot, User, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import type { ChatMessage as ChatMessageType } from "@/types"
 
 interface ChatMessageProps {
   message: ChatMessageType
+  onSuggestionClick?: (suggestion: string) => void
 }
 
 const agentLabels: Record<string, string> = {
   campaign_optimizer: "Otimizador",
   budget_advisor: "Consultor de Orçamento",
   performance_analyst: "Analista de Performance",
+  "Confirmação Necessária": "Confirmação Necessária",
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
   const isUser = message.role === "user"
+  const isConfirmation = message.requiresConfirmation
 
   return (
     <div
@@ -26,10 +29,20 @@ export function ChatMessage({ message }: ChatMessageProps) {
       <div
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-          isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+          isUser
+            ? "bg-primary text-primary-foreground"
+            : isConfirmation
+              ? "bg-amber-500 text-white"
+              : "bg-muted"
         )}
       >
-        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+        {isUser ? (
+          <User className="h-4 w-4" />
+        ) : isConfirmation ? (
+          <AlertTriangle className="h-4 w-4" />
+        ) : (
+          <Bot className="h-4 w-4" />
+        )}
       </div>
 
       <div
@@ -39,7 +52,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
         )}
       >
         {!isUser && message.agentType && (
-          <Badge variant="secondary" className="text-xs">
+          <Badge
+            variant={isConfirmation ? "destructive" : "secondary"}
+            className="text-xs"
+          >
             {agentLabels[message.agentType] || message.agentType}
           </Badge>
         )}
@@ -49,7 +65,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
             "rounded-lg px-4 py-2",
             isUser
               ? "bg-primary text-primary-foreground"
-              : "bg-muted text-foreground"
+              : isConfirmation
+                ? "border-2 border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                : "bg-muted text-foreground"
           )}
         >
           <p className="whitespace-pre-wrap text-sm">{message.content}</p>
@@ -60,8 +78,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {message.suggestions.map((suggestion, index) => (
               <Badge
                 key={index}
-                variant="outline"
+                variant={isConfirmation && index === 0 ? "destructive" : "outline"}
                 className="cursor-pointer hover:bg-muted"
+                onClick={() => onSuggestionClick?.(suggestion)}
               >
                 {suggestion}
               </Badge>
