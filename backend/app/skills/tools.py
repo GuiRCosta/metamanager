@@ -239,7 +239,7 @@ def list_campaigns(
                 "name": c["name"],
                 "objective": c.get("objective"),
                 "status": c.get("effective_status", c.get("status")),
-                "daily_budget": c.get("daily_budget"),
+                "daily_budget": int(c["daily_budget"]) / 100 if c.get("daily_budget") else None,
             }
             for c in filtered
         ]
@@ -273,8 +273,8 @@ def get_campaign_details(campaign_id: str) -> str:
                 "name": campaign["name"],
                 "objective": campaign.get("objective"),
                 "status": campaign.get("status"),
-                "daily_budget": campaign.get("daily_budget"),
-                "lifetime_budget": campaign.get("lifetime_budget"),
+                "daily_budget": int(campaign["daily_budget"]) / 100 if campaign.get("daily_budget") else None,
+                "lifetime_budget": int(campaign["lifetime_budget"]) / 100 if campaign.get("lifetime_budget") else None,
                 "created_time": campaign.get("created_time"),
             },
             "ad_sets_count": len(ad_sets),

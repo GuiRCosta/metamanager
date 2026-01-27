@@ -3,9 +3,11 @@ Campaign Orchestrator - Coordena todos os skills de campanha.
 """
 
 import re
+import logging
 from typing import Optional
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
+import httpx
 
 from app.config import get_settings
 from app.skills.campaign_creator import create_campaign_creator_agent
@@ -18,6 +20,10 @@ from app.skills.report_generator import create_report_generator_agent
 from app.skills.tools import set_current_ad_account
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+# Threshold mínimo de score para confiar no roteamento por keywords
+KEYWORD_CONFIDENCE_THRESHOLD = 2
 
 
 class CampaignOrchestrator:
@@ -75,6 +81,9 @@ class CampaignOrchestrator:
             "mostrar", "mostre", "mostrar campanha", "listar", "liste",
             "edit", "update", "activate", "delete", "show", "list",
             "desativar", "desative", "desativa",
+            "campanha", "campanhas",
+            "fale", "falar", "detalhes", "detalhe", "informações",
+            "informação", "sobre", "qual", "quais", "como está",
         ],
         "audience": [
             "público", "audiência", "targeting", "segmentação",
@@ -182,11 +191,13 @@ class CampaignOrchestrator:
 
         return True, f"Você solicitou uma ação que modifica dados.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-    def _detect_intent(self, message: str) -> str:
-        """Detecta a intenção da mensagem e retorna o skill apropriado."""
+    def _detect_intent_by_keywords(self, message: str) -> tuple[str, int]:
+        """
+        Detecta a intenção por keywords. Retorna (intent, score).
+        Score alto = alta confiança.
+        """
         message_lower = message.lower()
 
-        # Usar word boundary para evitar match em nomes de campanhas
         scores = {}
         for intent, keywords in self.INTENT_KEYWORDS.items():
             score = sum(
@@ -198,15 +209,80 @@ class CampaignOrchestrator:
         max_score = max(scores.values()) if scores else 0
 
         if max_score == 0:
-            # Default: Performance Analyzer para perguntas gerais
-            return "analyzer"
+            return "analyzer", 0
 
-        # Retorna o primeiro intent com score máximo
         for intent, score in scores.items():
             if score == max_score:
-                return intent
+                return intent, max_score
 
-        return "analyzer"
+        return "analyzer", 0
+
+    async def _detect_intent_by_llm(self, message: str) -> str:
+        """
+        Usa o LLM via OpenRouter para classificar o intent quando keywords são ambíguas.
+        Chamada rápida com prompt curto e max_tokens baixo.
+        """
+        valid_intents = list(self.INTENT_KEYWORDS.keys())
+
+        classification_prompt = f"""Classifique a mensagem do usuário em EXATAMENTE uma categoria.
+
+Categorias:
+- creator: criar campanhas, ad sets, ads novos
+- editor: ver, listar, editar, pausar, ativar, duplicar, excluir campanhas existentes
+- audience: público-alvo, targeting, interesses, segmentação, localização
+- creative: criativos, imagens, vídeos, formatos de anúncio
+- budget: orçamento, gastos, verba, investimento, projeção de custos
+- analyzer: análise de performance, métricas, CTR, CPC, ROAS, comparações
+- reporter: relatórios, resumos, exportar dados, visão geral
+
+Mensagem: "{message}"
+
+Responda APENAS com o nome da categoria, sem explicação."""
+
+        try:
+            base_url = settings.llm_base_url or "https://api.openai.com/v1"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.llm_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": settings.llm_model,
+                        "messages": [{"role": "user", "content": classification_prompt}],
+                        "max_tokens": 20,
+                        "temperature": 0,
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+                intent = data["choices"][0]["message"]["content"].strip().lower()
+
+                if intent in valid_intents:
+                    logger.info(f"LLM classified intent: '{message[:50]}...' -> {intent}")
+                    return intent
+
+                logger.warning(f"LLM returned invalid intent '{intent}', falling back to analyzer")
+                return "analyzer"
+
+        except Exception as e:
+            logger.error(f"LLM intent classification failed: {e}")
+            return "analyzer"
+
+    async def _detect_intent(self, message: str) -> str:
+        """
+        Detecção híbrida: keywords para casos claros, LLM para ambíguos.
+        """
+        intent, score = self._detect_intent_by_keywords(message)
+
+        if score >= KEYWORD_CONFIDENCE_THRESHOLD:
+            logger.info(f"Keyword intent (score={score}): '{message[:50]}...' -> {intent}")
+            return intent
+
+        # Score baixo ou zero: usar LLM para classificar
+        logger.info(f"Low keyword score ({score}), using LLM for: '{message[:50]}...'")
+        return await self._detect_intent_by_llm(message)
 
     def _get_skill_name(self, intent: str) -> str:
         """Retorna o nome amigável do skill."""
@@ -299,8 +375,8 @@ class CampaignOrchestrator:
                     "pending_action": message,
                 }
 
-        # Detectar intenção
-        intent = self._detect_intent(message)
+        # Detectar intenção (híbrido: keywords + LLM fallback)
+        intent = await self._detect_intent(message)
 
         # Obter o skill apropriado
         skill = self._get_skill(intent)
