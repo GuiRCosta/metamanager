@@ -1,12 +1,33 @@
 """
 Ferramentas (Tools) para os skills de IA.
 Cada função é uma tool que pode ser usada pelos agentes Agno.
+
+NOTA: Todas as tools devem ser síncronas (def, não async def)
+porque o Agno 1.x não faz await em async tools.
+Usamos _run_async() para executar código assíncrono dentro de funções síncronas.
 """
 
+import asyncio
 import json
 from contextvars import ContextVar
 from typing import Optional
 from app.tools.meta_api import MetaAPI
+
+
+def _run_async(coro):
+    """Executa uma coroutine de forma síncrona, compatível com Agno 1.x."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            return pool.submit(asyncio.run, coro).result()
+    else:
+        return asyncio.run(coro)
+
 
 # Context variable para armazenar ad_account_id atual
 _current_ad_account_id: ContextVar[Optional[str]] = ContextVar("ad_account_id", default=None)
@@ -35,7 +56,6 @@ def format_error(error: Exception) -> str:
         if key.lower() in error_str:
             return message
 
-    # Erro genérico com detalhes
     return f"Erro ao processar: {str(error)}"
 
 
@@ -51,7 +71,6 @@ def get_current_ad_account() -> Optional[str]:
 
 def get_meta_api(ad_account_id: Optional[str] = None) -> MetaAPI:
     """Retorna instância do MetaAPI usando contexto atual se não especificado."""
-    # Usa ad_account_id do contexto se não foi passado explicitamente
     account_id = ad_account_id or get_current_ad_account()
     return MetaAPI(ad_account_id=account_id)
 
@@ -61,7 +80,7 @@ def get_meta_api(ad_account_id: Optional[str] = None) -> MetaAPI:
 # ============================================
 
 
-async def create_campaign(
+def create_campaign(
     name: str,
     objective: str,
     daily_budget: Optional[float] = None,
@@ -80,7 +99,7 @@ async def create_campaign(
     Returns:
         JSON com ID da campanha criada e detalhes
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         result = await meta_api.create_campaign(
             name=name,
@@ -97,11 +116,14 @@ async def create_campaign(
             "status": campaign.get("status"),
             "message": f"Campanha '{name}' criada com sucesso!",
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": format_error(e)}, ensure_ascii=False)
 
 
-async def create_ad_set(
+def create_ad_set(
     campaign_id: str,
     name: str,
     daily_budget: int,
@@ -123,7 +145,7 @@ async def create_ad_set(
     Returns:
         JSON com ID do ad set criado
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         result = await meta_api.create_ad_set(
             campaign_id=campaign_id,
@@ -140,11 +162,14 @@ async def create_ad_set(
             "name": name,
             "campaign_id": campaign_id,
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def create_ad(
+def create_ad(
     ad_set_id: str,
     name: str,
     creative_id: str,
@@ -160,7 +185,7 @@ async def create_ad(
     Returns:
         JSON com ID do anúncio criado
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         result = await meta_api.create_ad(
             ad_set_id=ad_set_id,
@@ -174,6 +199,9 @@ async def create_ad(
             "name": name,
             "ad_set_id": ad_set_id,
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
@@ -183,7 +211,7 @@ async def create_ad(
 # ============================================
 
 
-async def list_campaigns(
+def list_campaigns(
     status: Optional[str] = None,
     include_archived: bool = False,
 ) -> str:
@@ -197,12 +225,13 @@ async def list_campaigns(
     Returns:
         JSON com lista de campanhas
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         campaigns = await meta_api.get_campaigns(include_archived=include_archived)
 
+        filtered = campaigns
         if status:
-            campaigns = [c for c in campaigns if c.get("effective_status") == status]
+            filtered = [c for c in campaigns if c.get("effective_status") == status]
 
         result = [
             {
@@ -212,14 +241,17 @@ async def list_campaigns(
                 "status": c.get("effective_status", c.get("status")),
                 "daily_budget": c.get("daily_budget"),
             }
-            for c in campaigns
+            for c in filtered
         ]
         return json.dumps({"success": True, "campaigns": result, "total": len(result)}, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def get_campaign_details(campaign_id: str) -> str:
+def get_campaign_details(campaign_id: str) -> str:
     """
     Obtém detalhes completos de uma campanha.
 
@@ -229,7 +261,7 @@ async def get_campaign_details(campaign_id: str) -> str:
     Returns:
         JSON com detalhes da campanha
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         campaign = await meta_api.get_campaign(campaign_id)
         ad_sets = await meta_api.get_ad_sets(campaign_id)
@@ -251,11 +283,14 @@ async def get_campaign_details(campaign_id: str) -> str:
                 for a in ad_sets
             ],
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def update_campaign_status(campaign_id: str, status: str) -> str:
+def update_campaign_status(campaign_id: str, status: str) -> str:
     """
     Atualiza o status de uma campanha (ativar/pausar/arquivar).
 
@@ -266,7 +301,6 @@ async def update_campaign_status(campaign_id: str, status: str) -> str:
     Returns:
         JSON com resultado da operação
     """
-    # Validar status
     valid_statuses = ["ACTIVE", "PAUSED", "ARCHIVED"]
     if status.upper() not in valid_statuses:
         return json.dumps({
@@ -274,9 +308,8 @@ async def update_campaign_status(campaign_id: str, status: str) -> str:
             "error": f"Status inválido. Use: {', '.join(valid_statuses)}",
         }, ensure_ascii=False)
 
-    try:
+    async def _impl():
         meta_api = get_meta_api()
-        # Buscar nome da campanha para feedback
         campaign = await meta_api.get_campaign(campaign_id)
         campaign_name = campaign.get("name", campaign_id)
 
@@ -294,11 +327,14 @@ async def update_campaign_status(campaign_id: str, status: str) -> str:
             "new_status": status.upper(),
             "message": f"Campanha '{campaign_name}' {status_labels[status.upper()]} com sucesso!",
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": format_error(e)}, ensure_ascii=False)
 
 
-async def update_campaign_budget(campaign_id: str, daily_budget: float) -> str:
+def update_campaign_budget(campaign_id: str, daily_budget: float) -> str:
     """
     Atualiza o orçamento diário de uma campanha.
 
@@ -309,7 +345,7 @@ async def update_campaign_budget(campaign_id: str, daily_budget: float) -> str:
     Returns:
         JSON com resultado da operação
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         await meta_api.update_campaign(campaign_id, {"daily_budget": daily_budget})
         return json.dumps({
@@ -318,11 +354,14 @@ async def update_campaign_budget(campaign_id: str, daily_budget: float) -> str:
             "new_daily_budget": daily_budget,
             "message": f"Orçamento atualizado para R$ {daily_budget:.2f}/dia",
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def duplicate_campaign(
+def duplicate_campaign(
     campaign_id: str,
     count: int = 1,
     include_ads: bool = True,
@@ -338,7 +377,7 @@ async def duplicate_campaign(
     Returns:
         JSON com IDs das campanhas criadas
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         original = await meta_api.get_campaign(campaign_id)
 
@@ -365,6 +404,9 @@ async def duplicate_campaign(
             "created_campaigns": created,
             "total": len(created),
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
@@ -374,7 +416,7 @@ async def duplicate_campaign(
 # ============================================
 
 
-async def search_interests(query: str, limit: int = 20) -> str:
+def search_interests(query: str, limit: int = 20) -> str:
     """
     Busca interesses disponíveis para targeting.
 
@@ -385,7 +427,7 @@ async def search_interests(query: str, limit: int = 20) -> str:
     Returns:
         JSON com lista de interesses encontrados
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         interests = await meta_api.search_interests(query, limit)
         return json.dumps({
@@ -394,11 +436,14 @@ async def search_interests(query: str, limit: int = 20) -> str:
             "interests": interests,
             "total": len(interests),
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def search_locations(
+def search_locations(
     query: str,
     location_types: Optional[list[str]] = None,
 ) -> str:
@@ -412,7 +457,7 @@ async def search_locations(
     Returns:
         JSON com localizações encontradas
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         locations = await meta_api.search_locations(query, location_types)
         return json.dumps({
@@ -421,11 +466,14 @@ async def search_locations(
             "locations": locations,
             "total": len(locations),
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def estimate_audience_reach(
+def estimate_audience_reach(
     targeting_spec: dict,
     optimization_goal: str = "REACH",
 ) -> str:
@@ -439,7 +487,7 @@ async def estimate_audience_reach(
     Returns:
         JSON com estimativa de alcance
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         estimate = await meta_api.get_reach_estimate(targeting_spec, optimization_goal)
 
@@ -455,6 +503,9 @@ async def estimate_audience_reach(
                 "ready": estimate.get("estimate_ready", False),
             },
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
@@ -464,7 +515,7 @@ async def estimate_audience_reach(
 # ============================================
 
 
-async def get_account_spend_summary(date_preset: str = "last_30d") -> str:
+def get_account_spend_summary(date_preset: str = "last_30d") -> str:
     """
     Obtém resumo de gastos da conta.
 
@@ -474,7 +525,7 @@ async def get_account_spend_summary(date_preset: str = "last_30d") -> str:
     Returns:
         JSON com resumo de gastos
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         insights = await meta_api.get_account_insights(date_preset)
 
@@ -491,11 +542,14 @@ async def get_account_spend_summary(date_preset: str = "last_30d") -> str:
                 "roas": insights.get("roas", 0),
             },
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def get_campaigns_spend_comparison(date_preset: str = "last_7d") -> str:
+def get_campaigns_spend_comparison(date_preset: str = "last_7d") -> str:
     """
     Compara gastos entre campanhas.
 
@@ -505,7 +559,7 @@ async def get_campaigns_spend_comparison(date_preset: str = "last_7d") -> str:
     Returns:
         JSON com gastos por campanha ordenados
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         campaigns = await meta_api.get_all_campaigns_insights(date_preset)
 
@@ -532,18 +586,21 @@ async def get_campaigns_spend_comparison(date_preset: str = "last_7d") -> str:
             "total_spend": total_spend,
             "campaigns": result,
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def get_budget_recommendations() -> str:
+def get_budget_recommendations() -> str:
     """
     Gera recomendações de alocação de orçamento baseado em performance.
 
     Returns:
         JSON com recomendações de orçamento
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         campaigns = await meta_api.get_all_campaigns_insights("last_7d")
 
@@ -577,6 +634,9 @@ async def get_budget_recommendations() -> str:
             "recommendations": recommendations,
             "total": len(recommendations),
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
@@ -586,7 +646,7 @@ async def get_budget_recommendations() -> str:
 # ============================================
 
 
-async def get_campaign_insights(
+def get_campaign_insights(
     campaign_id: str,
     date_preset: str = "last_7d",
 ) -> str:
@@ -600,7 +660,7 @@ async def get_campaign_insights(
     Returns:
         JSON com métricas da campanha
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         insights = await meta_api.get_campaign_insights(campaign_id, date_preset)
 
@@ -618,11 +678,14 @@ async def get_campaign_insights(
             "period": date_preset,
             "insights": insights,
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def get_breakdown_analysis(
+def get_breakdown_analysis(
     object_id: str,
     breakdown: str,
     date_preset: str = "last_7d",
@@ -638,7 +701,7 @@ async def get_breakdown_analysis(
     Returns:
         JSON com breakdown das métricas
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         data = await meta_api.get_insights_with_breakdown(object_id, date_preset, [breakdown])
 
@@ -665,11 +728,14 @@ async def get_breakdown_analysis(
             "breakdown": breakdown,
             "data": result,
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def get_trends_analysis(date_preset: str = "last_7d") -> str:
+def get_trends_analysis(date_preset: str = "last_7d") -> str:
     """
     Analisa tendências de performance ao longo do tempo.
 
@@ -679,7 +745,7 @@ async def get_trends_analysis(date_preset: str = "last_7d") -> str:
     Returns:
         JSON com dados de tendência
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         daily_data = await meta_api.get_account_insights_by_day(date_preset)
 
@@ -713,11 +779,14 @@ async def get_trends_analysis(date_preset: str = "last_7d") -> str:
             },
             "daily_data": daily_data,
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def compare_campaigns_performance(
+def compare_campaigns_performance(
     campaign_ids: list[str],
     date_preset: str = "last_7d",
 ) -> str:
@@ -731,7 +800,7 @@ async def compare_campaigns_performance(
     Returns:
         JSON com comparação de métricas
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         results = []
 
@@ -751,6 +820,9 @@ async def compare_campaigns_performance(
             "period": date_preset,
             "comparison": results,
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
@@ -760,7 +832,7 @@ async def compare_campaigns_performance(
 # ============================================
 
 
-async def generate_performance_report(
+def generate_performance_report(
     date_preset: str = "last_7d",
     include_campaigns: bool = True,
     include_adsets: bool = False,
@@ -776,7 +848,7 @@ async def generate_performance_report(
     Returns:
         JSON com relatório formatado
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
 
         account_insights = await meta_api.get_account_insights(date_preset)
@@ -817,11 +889,14 @@ async def generate_performance_report(
             ]
 
         return json.dumps(report, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def generate_budget_report(date_preset: str = "last_30d") -> str:
+def generate_budget_report(date_preset: str = "last_30d") -> str:
     """
     Gera relatório focado em orçamento e gastos.
 
@@ -831,7 +906,7 @@ async def generate_budget_report(date_preset: str = "last_30d") -> str:
     Returns:
         JSON com relatório de orçamento
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
 
         insights = await meta_api.get_account_insights(date_preset)
@@ -842,7 +917,6 @@ async def generate_budget_report(date_preset: str = "last_30d") -> str:
         days = len(daily_data) if daily_data else 1
         daily_average = total_spend / days
 
-        # Projeção mensal
         monthly_projection = daily_average * 30
 
         report = {
@@ -866,18 +940,21 @@ async def generate_budget_report(date_preset: str = "last_30d") -> str:
         }
 
         return json.dumps(report, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 
-async def get_account_limits_report() -> str:
+def get_account_limits_report() -> str:
     """
     Gera relatório de limites da conta.
 
     Returns:
         JSON com limites e uso atual
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         limits = await meta_api.get_account_limits()
 
@@ -887,6 +964,9 @@ async def get_account_limits_report() -> str:
             "account_name": limits.get("account_name", ""),
             "limits": limits.get("items", []),
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
@@ -896,7 +976,7 @@ async def get_account_limits_report() -> str:
 # ============================================
 
 
-async def list_creatives(limit: int = 20) -> str:
+def list_creatives(limit: int = 20) -> str:
     """
     Lista criativos disponíveis na conta.
 
@@ -906,7 +986,7 @@ async def list_creatives(limit: int = 20) -> str:
     Returns:
         JSON com lista de criativos
     """
-    try:
+    async def _impl():
         meta_api = get_meta_api()
         creatives = await meta_api.get_creatives(min(limit, 50))
 
@@ -925,6 +1005,9 @@ async def list_creatives(limit: int = 20) -> str:
             "creatives": result,
             "total": len(result),
         }, ensure_ascii=False)
+
+    try:
+        return _run_async(_impl())
     except Exception as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
@@ -1127,7 +1210,6 @@ def get_creative_best_practices(objective: str) -> str:
     }
 
     objective = objective.lower()
-    # Map ODAX objectives to simplified names
     objective_map = {
         "outcome_awareness": "awareness",
         "outcome_traffic": "traffic",
