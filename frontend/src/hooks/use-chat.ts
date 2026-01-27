@@ -78,7 +78,7 @@ export function useChat(options?: UseChatOptions) {
         setIsLoading(false)
       }
     },
-    [options]
+    [messages, options]
   )
 
   const clearMessages = useCallback(() => {
