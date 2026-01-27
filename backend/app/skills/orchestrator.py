@@ -46,7 +46,7 @@ class CampaignOrchestrator:
         "editar", "edite", "alterar", "altere", "modificar", "modifique",
         "atualizar", "atualize", "edit", "update",
         # Pausar/Ativar
-        "pausar", "pause", "ativar", "ative", "ativa", "activate", "parar", "pare",
+        "pausar", "pause", "ativar", "ative", "activate", "parar", "pare",
         # Deletar/Arquivar
         "arquivar", "archive", "deletar", "delete", "excluir", "exclua",
         # Duplicar
@@ -55,7 +55,7 @@ class CampaignOrchestrator:
         "aumentar", "aumente", "reduzir", "reduza",
         "mudar orçamento", "alterar budget",
         # Desativar
-        "desativar", "desative", "desativa", "disable",
+        "desativar", "desative", "disable",
     ]
 
     # Palavras-chave que indicam ações em massa (mais perigosas)
@@ -130,44 +130,53 @@ class CampaignOrchestrator:
                 self._skills[skill_name] = skill_creators[skill_name]()
         return self._skills.get(skill_name)
 
+    def _word_match(self, message_lower: str, words: list[str]) -> bool:
+        """Verifica se alguma palavra aparece como palavra inteira na mensagem."""
+        return any(
+            re.search(rf'\b{re.escape(w)}\b', message_lower)
+            for w in words
+        )
+
     def _requires_confirmation(self, message: str) -> tuple[bool, str]:
         """
         Verifica se a mensagem indica uma ação que modifica dados.
+        Usa word boundary para evitar falsos positivos com adjetivos
+        (ex: "desativada" não deve disparar confirmação de "desativar").
 
         Returns:
             Tuple (requires_confirmation, warning_message)
         """
         message_lower = message.lower()
 
-        has_modification = any(kw in message_lower for kw in self.MODIFICATION_KEYWORDS)
+        has_modification = self._word_match(message_lower, self.MODIFICATION_KEYWORDS)
         if not has_modification:
             return False, ""
 
-        is_bulk = any(kw in message_lower for kw in self.BULK_KEYWORDS)
+        is_bulk = self._word_match(message_lower, self.BULK_KEYWORDS)
 
-        if any(w in message_lower for w in ["arquivar", "archive", "deletar", "delete", "excluir", "exclua"]):
+        if self._word_match(message_lower, ["arquivar", "archive", "deletar", "delete", "excluir", "exclua"]):
             if is_bulk:
                 return True, "Você está prestes a **ARQUIVAR/EXCLUIR múltiplas campanhas**. Esta ação é irreversível.\n\nPara confirmar, responda **CONFIRMAR**."
             return True, f"Você solicitou uma ação de **exclusão/arquivamento**.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["pausar", "pause", "parar", "pare"]):
+        if self._word_match(message_lower, ["pausar", "pause", "parar", "pare"]):
             if is_bulk:
                 return True, "Você está prestes a **PAUSAR múltiplas campanhas**.\n\nPara confirmar, responda **CONFIRMAR**."
             return True, f"Você solicitou **pausar** uma campanha.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["ativar", "ative", "ativa", "activate"]):
+        if self._word_match(message_lower, ["ativar", "ative", "activate"]):
             return True, f"Você solicitou **ativar** uma campanha.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["criar", "crie", "create", "launch", "lançar", "lance", "adicionar", "adicione"]):
+        if self._word_match(message_lower, ["criar", "crie", "create", "launch", "lançar", "lance", "adicionar", "adicione"]):
             return True, f"Você solicitou **criar** um novo recurso.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["duplicar", "duplique", "copiar", "copie", "clonar", "clone", "duplicate"]):
+        if self._word_match(message_lower, ["duplicar", "duplique", "copiar", "copie", "clonar", "clone", "duplicate"]):
             return True, f"Você solicitou **duplicar** uma campanha.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["aumentar", "aumente", "reduzir", "reduza", "alterar", "altere", "modificar", "modifique", "editar", "edite", "atualizar", "atualize", "mudar", "mude"]):
+        if self._word_match(message_lower, ["aumentar", "aumente", "reduzir", "reduza", "alterar", "altere", "modificar", "modifique", "editar", "edite", "atualizar", "atualize", "mudar", "mude"]):
             return True, f"Você solicitou uma **modificação**.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["desativar", "desative", "desativa", "disable"]):
+        if self._word_match(message_lower, ["desativar", "desative", "disable"]):
             return True, f"Você solicitou **desativar** um recurso.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
         return True, f"Você solicitou uma ação que modifica dados.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."

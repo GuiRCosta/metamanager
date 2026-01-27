@@ -24,7 +24,12 @@ export default function AgentPage() {
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      // ScrollArea usa viewport interno do Radix
+      const viewport = scrollRef.current.querySelector(
+        "[data-radix-scroll-area-viewport]"
+      )
+      const target = viewport ?? scrollRef.current
+      target.scrollTop = target.scrollHeight
     }
   }, [messages])
 
