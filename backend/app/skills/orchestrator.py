@@ -207,13 +207,16 @@ class CampaignOrchestrator:
 
         scores = {}
         for intent, keywords in self.INTENT_KEYWORDS.items():
-            score = sum(
-                1 for kw in keywords
+            matched = [
+                kw for kw in keywords
                 if re.search(rf'\b{re.escape(kw)}{self.CLITIC_SUFFIXES}\b', message_lower)
-            )
-            scores[intent] = score
+            ]
+            scores[intent] = len(matched)
+            if matched:
+                logger.info(f"Intent '{intent}' matched keywords: {matched} (score={len(matched)})")
 
         max_score = max(scores.values()) if scores else 0
+        logger.info(f"All scores for '{message_lower[:60]}...': {scores}, max={max_score}")
 
         if max_score == 0:
             return "analyzer", 0
@@ -420,6 +423,7 @@ Responda APENAS com o nome da categoria, sem explicação."""
 
         # Detectar intenção (híbrido: keywords + LLM fallback)
         intent = await self._detect_intent(message)
+        logger.info(f"FINAL ROUTING: message='{message[:80]}' -> intent='{intent}', is_confirmed={is_confirmed}")
 
         # Obter o skill apropriado
         skill = self._get_skill(intent)
