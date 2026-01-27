@@ -182,15 +182,6 @@ class CampaignOrchestrator:
 
         return True, f"Você solicitou uma ação que modifica dados.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-    def _is_confirmation(self, message: str) -> bool:
-        """Verifica se a mensagem é uma confirmação."""
-        message_lower = message.lower()
-        confirmations = [
-            "confirmar", "confirm", "sim", "yes",
-            "confirmar pausa", "confirmar exclusão", "confirmar desativação",
-        ]
-        return any(c in message_lower for c in confirmations)
-
     def _detect_intent(self, message: str) -> str:
         """Detecta a intenção da mensagem e retorna o skill apropriado."""
         message_lower = message.lower()
@@ -276,6 +267,7 @@ class CampaignOrchestrator:
         message: str,
         ad_account_id: Optional[str] = None,
         history: Optional[list[dict]] = None,
+        confirmed_action: Optional[str] = None,
     ) -> dict:
         """
         Processa uma mensagem do usuário roteando para o skill apropriado.
@@ -284,6 +276,7 @@ class CampaignOrchestrator:
             message: Mensagem do usuário
             ad_account_id: ID da conta de anúncios (opcional)
             history: Histórico de mensagens anteriores (opcional)
+            confirmed_action: Ação confirmada pelo usuário (pula confirmação)
 
         Returns:
             dict com response, agent_type e suggestions
@@ -291,15 +284,11 @@ class CampaignOrchestrator:
         # Definir contexto da conta para as tools usarem
         set_current_ad_account(ad_account_id)
 
-        # Verificar se é uma confirmação de ação pendente
-        is_confirmation = self._is_confirmation(message)
-
-        # Se é confirmação com prefixo "CONFIRMAR:", extrair a mensagem original
-        if is_confirmation and message.upper().startswith("CONFIRMAR:"):
-            message = message[len("CONFIRMAR:"):].strip()
-
-        # Verificar se precisa de confirmação (exceto se já é uma confirmação)
-        if not is_confirmation:
+        # Se o frontend enviou uma ação confirmada, executar diretamente
+        if confirmed_action:
+            message = confirmed_action
+        else:
+            # Verificar se precisa de confirmação
             requires_confirmation, warning_message = self._requires_confirmation(message)
             if requires_confirmation:
                 return {

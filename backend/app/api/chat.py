@@ -25,6 +25,7 @@ async def chat_with_agent(request: ChatRequest):
             message=request.message,
             ad_account_id=ad_account_id,
             history=history,
+            confirmed_action=request.confirmed_action,
         )
 
         return ChatResponse(

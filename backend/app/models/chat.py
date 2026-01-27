@@ -24,6 +24,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     context: Optional[ChatContext] = None
     ad_account_id: Optional[str] = None  # Atalho para contexto de conta
+    confirmed_action: Optional[str] = None  # Ação confirmada pelo usuário
 
 
 class ChatResponse(BaseModel):

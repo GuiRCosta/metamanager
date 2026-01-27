@@ -12,6 +12,8 @@ interface MessageContext {
   ad_account_name?: string
 }
 
+const CONFIRMATION_WORDS = ["confirmar", "confirm", "sim", "yes"]
+
 export function useChat(options?: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -19,20 +21,23 @@ export function useChat(options?: UseChatOptions) {
 
   const sendMessage = useCallback(
     async (content: string, context?: MessageContext) => {
-      // Se o usuário confirmou uma ação pendente, reenviar a ação original
-      const isConfirmation = pendingActionRef.current &&
-        ["confirmar", "confirm", "sim", "yes"].includes(content.toLowerCase().trim())
+      const contentLower = content.toLowerCase().trim()
+      const hasPendingAction = pendingActionRef.current !== null
+      const isConfirmation = hasPendingAction && CONFIRMATION_WORDS.includes(contentLower)
+      const isCancellation = hasPendingAction && !isConfirmation
 
-      const actualMessage = isConfirmation ? pendingActionRef.current! : content
-      const displayContent = content
+      // Capturar a ação pendente antes de limpar
+      const pendingAction = isConfirmation ? pendingActionRef.current : null
 
-      // Limpar pending action ao confirmar ou ao enviar nova mensagem
-      pendingActionRef.current = null
+      // Só limpar pending action se cancelou (enviou outra mensagem não-confirmatória)
+      if (isCancellation) {
+        pendingActionRef.current = null
+      }
 
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
-        content: displayContent,
+        content,
         timestamp: new Date(),
       }
 
@@ -46,17 +51,15 @@ export function useChat(options?: UseChatOptions) {
       }))
 
       try {
-        const messageToSend = isConfirmation
-          ? `CONFIRMAR: ${actualMessage}`
-          : actualMessage
-
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message: messageToSend,
+            message: content,
             ad_account_id: context?.ad_account_id,
             context: { history },
+            // Enviar ação pendente explicitamente quando confirmando
+            confirmed_action: pendingAction,
           }),
         })
 
@@ -65,6 +68,11 @@ export function useChat(options?: UseChatOptions) {
         }
 
         const data = await response.json()
+
+        // Limpar pending action após confirmação bem-sucedida
+        if (isConfirmation) {
+          pendingActionRef.current = null
+        }
 
         // Se a resposta requer confirmação, armazenar a ação pendente
         if (data.requires_confirmation && data.pending_action) {
