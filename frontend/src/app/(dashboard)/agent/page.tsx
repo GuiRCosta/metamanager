@@ -74,7 +74,7 @@ export default function AgentPage() {
         </CardHeader>
 
         <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
-          <ScrollArea className="flex-1 p-6" ref={scrollRef}>
+          <ScrollArea className="min-h-0 flex-1 p-6" ref={scrollRef}>
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <div className="mb-4 rounded-full bg-primary/10 p-4">
@@ -125,7 +125,7 @@ export default function AgentPage() {
             )}
           </ScrollArea>
 
-          <div className="border-t p-4">
+          <div className="shrink-0 border-t p-4">
             <ChatInput
               onSend={handleSendMessage}
               isLoading={isLoading}

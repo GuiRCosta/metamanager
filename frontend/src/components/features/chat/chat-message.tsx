@@ -1,4 +1,5 @@
 import { Bot, User, AlertTriangle } from "lucide-react"
+import ReactMarkdown from "react-markdown"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import type { ChatMessage as ChatMessageType } from "@/types"
@@ -70,7 +71,13 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
                 : "bg-muted text-foreground"
           )}
         >
-          <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+          {isUser ? (
+            <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+          ) : (
+            <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+            </div>
+          )}
         </div>
 
         {message.suggestions && message.suggestions.length > 0 && (
