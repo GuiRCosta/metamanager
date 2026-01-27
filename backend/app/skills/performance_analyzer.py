@@ -47,6 +47,8 @@ Dimensões de análise (breakdown):
 - publisher_platform: Facebook, Instagram, etc.
 - device_platform: Mobile, Desktop
 
+Quando o usuário perguntar sobre uma campanha específica pelo nome, use list_campaigns com include_archived=True para encontrar campanhas em qualquer status (ativa, pausada ou arquivada).
+
 Responda sempre em português brasileiro com insights acionáveis."""
 
 

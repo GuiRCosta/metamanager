@@ -72,7 +72,8 @@ class CampaignOrchestrator:
             "pausar", "pause", "ativar", "ative", "ativa",
             "arquivar", "deletar", "excluir",
             "duplicar", "copiar", "clonar", "status",
-            "edit", "update", "activate", "delete",
+            "mostrar", "mostre", "mostrar campanha", "listar", "liste",
+            "edit", "update", "activate", "delete", "show", "list",
             "desativar", "desative", "desativa",
         ],
         "audience": [

@@ -35,6 +35,8 @@ Status disponíveis:
 - PAUSED: Campanha pausada
 - ARCHIVED: Campanha arquivada (não pode ser reativada)
 
+Quando o usuário perguntar sobre uma campanha específica ou pedir para listar campanhas, use list_campaigns com include_archived=True para mostrar campanhas em qualquer status (ativa, pausada ou arquivada).
+
 Responda sempre em português brasileiro de forma clara e objetiva."""
 
 
