@@ -140,10 +140,17 @@ class CampaignOrchestrator:
                 self._skills[skill_name] = skill_creators[skill_name]()
         return self._skills.get(skill_name)
 
+    # Sufixos clíticos do português (pronomes oblíquos átonos)
+    CLITIC_SUFFIXES = r'(?:-?(?:l[aoe]s?|m[eoe]|n[oa]s?|se|lh[eoa]s?|vos))?'
+
     def _word_match(self, message_lower: str, words: list[str]) -> bool:
-        """Verifica se alguma palavra aparece como palavra inteira na mensagem."""
+        """
+        Verifica se alguma palavra aparece na mensagem,
+        considerando sufixos clíticos do português.
+        Ex: "desativa-la" deve casar com "desativa".
+        """
         return any(
-            re.search(rf'\b{re.escape(w)}\b', message_lower)
+            re.search(rf'\b{re.escape(w)}{self.CLITIC_SUFFIXES}\b', message_lower)
             for w in words
         )
 
@@ -202,7 +209,7 @@ class CampaignOrchestrator:
         for intent, keywords in self.INTENT_KEYWORDS.items():
             score = sum(
                 1 for kw in keywords
-                if re.search(rf'\b{re.escape(kw)}\b', message_lower)
+                if re.search(rf'\b{re.escape(kw)}{self.CLITIC_SUFFIXES}\b', message_lower)
             )
             scores[intent] = score
 
@@ -340,6 +347,22 @@ Responda APENAS com o nome da categoria, sem explicação."""
         }
         return suggestions_map.get(intent, suggestions_map["analyzer"])
 
+    # Padrões que indicam que o agente pediu confirmação (não deveria)
+    AGENT_CONFIRMATION_PATTERNS = [
+        r'confirma\s+que\s+deseja',
+        r'deseja\s+prosseguir',
+        r'tem\s+certeza',
+        r'para\s+confirmar',
+        r'responda\s+confirm',
+        r'se\s+sim[,.]?\s+(?:posso|vou|irei)',
+        r'gostaria\s+de\s+confirmar',
+        r'deseja\s+continuar',
+        r'quer\s+(?:mesmo|realmente)',
+    ]
+
+    # Mensagens curtas que sozinhas não fazem sentido sem contexto
+    SHORT_CONTEXT_MESSAGES = ["sim", "yes", "ok", "não", "no", "confirmar", "confirm", "cancela", "cancelar"]
+
     async def process_message(
         self,
         message: str,
@@ -367,16 +390,33 @@ Responda APENAS com o nome da categoria, sem explicação."""
         if is_confirmed:
             message = confirmed_action
         else:
-            # Verificar se precisa de confirmação
-            requires_confirmation, warning_message = self._requires_confirmation(message)
-            if requires_confirmation:
-                return {
-                    "response": f"⚠️ **Ação Destrutiva Detectada**\n\n{warning_message}\n\nSe você não deseja prosseguir, apenas continue conversando normalmente.",
-                    "agent_type": "Confirmação Necessária",
-                    "suggestions": ["CONFIRMAR", "Cancelar", "Ver campanhas primeiro"],
-                    "requires_confirmation": True,
-                    "pending_action": message,
-                }
+            # Se a mensagem é curta e sem sentido próprio (ex: "sim", "ok"),
+            # usar o histórico para entender o contexto
+            if message.lower().strip() in self.SHORT_CONTEXT_MESSAGES and history:
+                # Buscar a última mensagem do usuário no histórico que tenha contexto
+                last_user_msg = None
+                for msg in reversed(history):
+                    if msg.get("role") == "user" and msg.get("content", "").lower().strip() not in self.SHORT_CONTEXT_MESSAGES:
+                        last_user_msg = msg["content"]
+                        break
+
+                if last_user_msg:
+                    # Tratar como confirmação da ação anterior
+                    logger.info(f"Short message '{message}' interpreted as confirmation of: '{last_user_msg}'")
+                    message = last_user_msg
+                    is_confirmed = True
+
+            if not is_confirmed:
+                # Verificar se precisa de confirmação
+                requires_confirmation, warning_message = self._requires_confirmation(message)
+                if requires_confirmation:
+                    return {
+                        "response": f"⚠️ **Ação Destrutiva Detectada**\n\n{warning_message}\n\nSe você não deseja prosseguir, apenas continue conversando normalmente.",
+                        "agent_type": "Confirmação Necessária",
+                        "suggestions": ["CONFIRMAR", "Cancelar", "Ver campanhas primeiro"],
+                        "requires_confirmation": True,
+                        "pending_action": message,
+                    }
 
         # Detectar intenção (híbrido: keywords + LLM fallback)
         intent = await self._detect_intent(message)
@@ -425,6 +465,24 @@ Responda APENAS com o nome da categoria, sem explicação."""
             else:
                 content = str(response)
 
+            # Post-process: detectar se o agente pediu confirmação (não deveria)
+            if intent in self.MODIFYING_INTENTS and self._agent_asked_confirmation(content):
+                logger.warning(f"Agent '{intent}' asked for confirmation despite instructions. Re-running with stronger prefix.")
+                # Re-executar com prefix mais forte
+                stronger_prefix = (
+                    "[INSTRUÇÃO DO SISTEMA: O usuário JÁ CONFIRMOU esta ação. "
+                    "NÃO peça confirmação. Execute a ação AGORA usando as tools disponíveis. "
+                    "Chamar a tool é OBRIGATÓRIO.]\n\n"
+                )
+                full_message_retry = stronger_prefix + context_prefix + history_context + message
+                response = await skill.arun(full_message_retry)
+                if hasattr(response, "content"):
+                    content = response.content
+                elif isinstance(response, str):
+                    content = response
+                else:
+                    content = str(response)
+
             return {
                 "response": content,
                 "agent_type": self._get_skill_name(intent),
@@ -437,6 +495,14 @@ Responda APENAS com o nome da categoria, sem explicação."""
                 "agent_type": "error",
                 "suggestions": self._generate_suggestions("analyzer"),
             }
+
+    def _agent_asked_confirmation(self, content: str) -> bool:
+        """Detecta se o agente pediu confirmação ao usuário (não deveria)."""
+        content_lower = content.lower()
+        return any(
+            re.search(pattern, content_lower)
+            for pattern in self.AGENT_CONFIRMATION_PATTERNS
+        )
 
     async def get_optimization(self, campaign_id: str) -> dict:
         """Obtém sugestões de otimização para uma campanha."""
