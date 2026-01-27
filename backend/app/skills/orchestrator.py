@@ -2,6 +2,7 @@
 Campaign Orchestrator - Coordena todos os skills de campanha.
 """
 
+import re
 from typing import Optional
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
@@ -39,19 +40,22 @@ class CampaignOrchestrator:
     # Palavras-chave que indicam ações de modificação
     MODIFICATION_KEYWORDS = [
         # Criar
-        "criar", "nova", "novo", "adicionar", "lançar", "create", "new", "launch",
+        "criar", "crie", "adicionar", "adicione", "lançar", "lance",
+        "create", "launch",
         # Editar
-        "editar", "alterar", "modificar", "atualizar", "edit", "update",
+        "editar", "edite", "alterar", "altere", "modificar", "modifique",
+        "atualizar", "atualize", "edit", "update",
         # Pausar/Ativar
-        "pausar", "ativar", "pause", "activate", "parar",
+        "pausar", "pause", "ativar", "ative", "ativa", "activate", "parar", "pare",
         # Deletar/Arquivar
-        "arquivar", "deletar", "excluir", "archive", "delete",
+        "arquivar", "archive", "deletar", "delete", "excluir", "exclua",
         # Duplicar
-        "duplicar", "copiar", "clonar", "duplicate",
+        "duplicar", "duplique", "copiar", "copie", "clonar", "clone", "duplicate",
         # Orçamento
-        "aumentar", "reduzir", "mudar orçamento", "alterar budget",
+        "aumentar", "aumente", "reduzir", "reduza",
+        "mudar orçamento", "alterar budget",
         # Desativar
-        "desativar", "disable",
+        "desativar", "desative", "desativa", "disable",
     ]
 
     # Palavras-chave que indicam ações em massa (mais perigosas)
@@ -60,14 +64,16 @@ class CampaignOrchestrator:
     # Palavras-chave para roteamento
     INTENT_KEYWORDS = {
         "creator": [
-            "criar", "nova", "novo", "adicionar", "lançar",
-            "create", "new", "launch", "iniciar",
+            "criar", "crie", "adicionar", "adicione", "lançar", "lance",
+            "create", "launch", "iniciar",
         ],
         "editor": [
             "editar", "alterar", "modificar", "atualizar",
-            "pausar", "ativar", "arquivar", "deletar", "excluir",
+            "pausar", "pause", "ativar", "ative", "ativa",
+            "arquivar", "deletar", "excluir",
             "duplicar", "copiar", "clonar", "status",
-            "edit", "update", "pause", "activate", "delete",
+            "edit", "update", "activate", "delete",
+            "desativar", "desative", "desativa",
         ],
         "audience": [
             "público", "audiência", "targeting", "segmentação",
@@ -139,29 +145,29 @@ class CampaignOrchestrator:
 
         is_bulk = any(kw in message_lower for kw in self.BULK_KEYWORDS)
 
-        if any(w in message_lower for w in ["arquivar", "archive", "deletar", "delete", "excluir"]):
+        if any(w in message_lower for w in ["arquivar", "archive", "deletar", "delete", "excluir", "exclua"]):
             if is_bulk:
                 return True, "Você está prestes a **ARQUIVAR/EXCLUIR múltiplas campanhas**. Esta ação é irreversível.\n\nPara confirmar, responda **CONFIRMAR**."
             return True, f"Você solicitou uma ação de **exclusão/arquivamento**.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["pausar", "pause", "parar"]):
+        if any(w in message_lower for w in ["pausar", "pause", "parar", "pare"]):
             if is_bulk:
                 return True, "Você está prestes a **PAUSAR múltiplas campanhas**.\n\nPara confirmar, responda **CONFIRMAR**."
             return True, f"Você solicitou **pausar** uma campanha.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["ativar", "activate"]):
+        if any(w in message_lower for w in ["ativar", "ative", "ativa", "activate"]):
             return True, f"Você solicitou **ativar** uma campanha.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["criar", "nova", "novo", "create", "new", "launch", "lançar", "adicionar"]):
+        if any(w in message_lower for w in ["criar", "crie", "create", "launch", "lançar", "lance", "adicionar", "adicione"]):
             return True, f"Você solicitou **criar** um novo recurso.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["duplicar", "copiar", "clonar", "duplicate"]):
+        if any(w in message_lower for w in ["duplicar", "duplique", "copiar", "copie", "clonar", "clone", "duplicate"]):
             return True, f"Você solicitou **duplicar** uma campanha.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["aumentar", "reduzir", "alterar", "modificar", "editar", "atualizar", "mudar"]):
+        if any(w in message_lower for w in ["aumentar", "aumente", "reduzir", "reduza", "alterar", "altere", "modificar", "modifique", "editar", "edite", "atualizar", "atualize", "mudar", "mude"]):
             return True, f"Você solicitou uma **modificação**.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
-        if any(w in message_lower for w in ["desativar", "disable"]):
+        if any(w in message_lower for w in ["desativar", "desative", "desativa", "disable"]):
             return True, f"Você solicitou **desativar** um recurso.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
 
         return True, f"Você solicitou uma ação que modifica dados.\n\nAção: _{message}_\n\nPara confirmar, responda **CONFIRMAR**."
@@ -179,9 +185,13 @@ class CampaignOrchestrator:
         """Detecta a intenção da mensagem e retorna o skill apropriado."""
         message_lower = message.lower()
 
+        # Usar word boundary para evitar match em nomes de campanhas
         scores = {}
         for intent, keywords in self.INTENT_KEYWORDS.items():
-            score = sum(1 for kw in keywords if kw in message_lower)
+            score = sum(
+                1 for kw in keywords
+                if re.search(rf'\b{re.escape(kw)}\b', message_lower)
+            )
             scores[intent] = score
 
         max_score = max(scores.values()) if scores else 0
