@@ -224,16 +224,18 @@ class CampaignOrchestrator:
         """
         valid_intents = list(self.INTENT_KEYWORDS.keys())
 
-        classification_prompt = f"""Classifique a mensagem do usuário em EXATAMENTE uma categoria.
+        classification_prompt = f"""Classifique a mensagem do usuário em EXATAMENTE uma categoria para um sistema de gerenciamento de campanhas Meta Ads.
 
 Categorias:
-- creator: criar campanhas, ad sets, ads novos
-- editor: ver, listar, editar, pausar, ativar, duplicar, excluir campanhas existentes
-- audience: público-alvo, targeting, interesses, segmentação, localização
-- creative: criativos, imagens, vídeos, formatos de anúncio
-- budget: orçamento, gastos, verba, investimento, projeção de custos
-- analyzer: análise de performance, métricas, CTR, CPC, ROAS, comparações
-- reporter: relatórios, resumos, exportar dados, visão geral
+- creator: criar campanhas, ad sets, ads NOVOS do zero
+- editor: ver, listar, mostrar, consultar detalhes, editar, pausar, ativar, desativar, duplicar, excluir campanhas existentes. Qualquer pergunta sobre uma campanha específica pelo nome vai aqui.
+- audience: público-alvo, targeting, interesses, segmentação, localização, demografia
+- creative: criativos, imagens, vídeos, carrossel, formatos de anúncio
+- budget: orçamento, gastos, verba, investimento, projeção de custos, alocação de budget
+- analyzer: análise de performance, métricas numéricas (CTR, CPC, CPM, ROAS), comparações entre campanhas, tendências
+- reporter: relatórios formais, resumos, exportar dados, visão geral da conta
+
+Regra importante: se a mensagem menciona uma campanha específica pelo nome e NÃO pede análise de métricas, use "editor".
 
 Mensagem: "{message}"
 
@@ -361,7 +363,8 @@ Responda APENAS com o nome da categoria, sem explicação."""
         set_current_ad_account(ad_account_id)
 
         # Se o frontend enviou uma ação confirmada, executar diretamente
-        if confirmed_action:
+        is_confirmed = confirmed_action is not None
+        if is_confirmed:
             message = confirmed_action
         else:
             # Verificar se precisa de confirmação
@@ -393,6 +396,10 @@ Responda APENAS com o nome da categoria, sem explicação."""
             context_prefix = ""
             if ad_account_id:
                 context_prefix = f"[Contexto: Conta de anúncios {ad_account_id}]\n\n"
+
+            # Se ação foi confirmada, instruir o agente a executar direto
+            if is_confirmed:
+                context_prefix += "[AÇÃO JÁ CONFIRMADA PELO USUÁRIO - Execute imediatamente sem pedir confirmação]\n\n"
 
             # Adicionar histórico se disponível
             history_context = ""
