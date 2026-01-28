@@ -106,6 +106,9 @@ class CampaignOrchestrator:
             "analyze", "metrics", "trend", "compare",
             "como está", "como estão", "resultado", "resultados",
             "campanha", "campanhas", "impressões", "cliques", "alcance",
+            # Palavras de busca/consulta (somente leitura)
+            "localizar", "encontrar", "buscar", "achar", "qual", "quais",
+            "existe", "tem", "find", "search", "where",
         ],
         "reporter": [
             "relatório", "report", "resumo", "summary",
@@ -237,20 +240,22 @@ class CampaignOrchestrator:
         classification_prompt = f"""Classifique a mensagem em UMA categoria para gerenciamento de campanhas Meta Ads.
 
 CATEGORIAS:
-- analyzer: perguntas sobre performance, métricas (CTR, CPC, CPM, ROAS), "como está", comparações, resultados, impressões, cliques
-- editor: ações em campanhas existentes - pausar, ativar, desativar, listar, mostrar, editar, duplicar, excluir
+- analyzer: CONSULTAS e perguntas - localizar, encontrar, buscar, achar, qual, quais, existe, tem, como está, métricas, performance, resultados
+- editor: AÇÕES EXPLÍCITAS em campanhas - pausar, ativar, desativar, editar, duplicar, excluir (verbos de ação)
 - creator: criar campanhas/ads/ad sets NOVOS do zero
 - budget: orçamento, gastos, verba, investimento, projeção de custos
 - audience: público-alvo, targeting, interesses, segmentação
 - creative: criativos, imagens, vídeos, formatos de anúncio
 - reporter: relatórios formais, exportar dados
 
-REGRAS:
-1. "Como está a performance/campanhas?" → analyzer
-2. "Pause/ative/desative a campanha X" → editor
-3. "Liste campanhas" → editor
-4. "Crie uma campanha" → creator
-5. "Qual o orçamento?" → budget
+REGRAS IMPORTANTES:
+1. "Localizar/encontrar/buscar campanha X" → analyzer (é CONSULTA, não ação)
+2. "Qual campanha tem..." ou "Tem uma campanha..." → analyzer
+3. "Pause/ative/desative a campanha X" → editor (é AÇÃO explícita)
+4. "Liste campanhas" → analyzer (é consulta)
+5. "Como está a performance?" → analyzer
+6. "Crie uma campanha" → creator
+7. "Qual o orçamento?" → budget
 
 Mensagem: "{message}"
 
