@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Meta Campaign Manager API",
     description="API para gerenciamento de campanhas Meta Ads com agentes de IA",
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
@@ -68,7 +68,7 @@ app.include_router(whatsapp_router, prefix="/api/whatsapp", tags=["whatsapp"])
 
 @app.get("/")
 async def root():
-    return {"message": "Meta Campaign Manager API", "version": "1.0.0"}
+    return {"message": "Meta Campaign Manager API", "version": "1.1.0"}
 
 
 @app.get("/health")
