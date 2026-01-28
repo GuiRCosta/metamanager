@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.models.settings import (
     Settings,
@@ -129,6 +130,23 @@ async def update_settings(updates: SettingsUpdate):
 
     save_settings(current)
     return current
+
+
+class SetDefaultAccountRequest(BaseModel):
+    """Request para definir conta padrão."""
+    ad_account_id: str
+
+
+@router.patch("/default-account")
+async def set_default_account(request: SetDefaultAccountRequest):
+    """
+    Define a conta de anúncios padrão.
+    Chamado automaticamente quando o usuário seleciona uma conta no dropdown.
+    """
+    current = load_settings()
+    current.meta_api.ad_account_id = request.ad_account_id
+    save_settings(current)
+    return {"success": True, "ad_account_id": request.ad_account_id}
 
 
 @router.post("/test-connection", response_model=TestConnectionResponse)

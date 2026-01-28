@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { accountsApi, type AdAccount } from "@/lib/api"
+import { accountsApi, settingsApi, type AdAccount } from "@/lib/api"
 
 interface AdAccountContextType {
   accounts: AdAccount[]
@@ -38,6 +38,8 @@ export function AdAccountProvider({ children }: { children: ReactNode }) {
         const savedAccount = activeAccounts.find(acc => acc.account_id === savedAccountId)
         if (savedAccount) {
           setSelectedAccountState(savedAccount)
+          // Sync to backend on restore
+          settingsApi.setDefaultAccount(savedAccount.account_id).catch(console.error)
           return
         }
       }
@@ -45,6 +47,8 @@ export function AdAccountProvider({ children }: { children: ReactNode }) {
       // Default to first account if none selected
       if (activeAccounts.length > 0 && !selectedAccount) {
         setSelectedAccountState(activeAccounts[0])
+        // Sync default selection to backend
+        settingsApi.setDefaultAccount(activeAccounts[0].account_id).catch(console.error)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar contas")
@@ -53,9 +57,13 @@ export function AdAccountProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const setSelectedAccount = (account: AdAccount) => {
+  const setSelectedAccount = (account: AdAccount, syncToBackend = true) => {
     setSelectedAccountState(account)
     localStorage.setItem(STORAGE_KEY, account.account_id)
+    // Sync to backend for scheduler/reports
+    if (syncToBackend) {
+      settingsApi.setDefaultAccount(account.account_id).catch(console.error)
+    }
   }
 
   useEffect(() => {

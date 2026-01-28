@@ -590,6 +590,12 @@ export const settingsApi = {
       method: "POST",
       body: JSON.stringify(credentials),
     }),
+
+  setDefaultAccount: (adAccountId: string) =>
+    fetchApi<{ success: boolean; ad_account_id: string }>("/api/settings/default-account", {
+      method: "PATCH",
+      body: JSON.stringify({ ad_account_id: adAccountId }),
+    }),
 }
 
 // Alerts API
