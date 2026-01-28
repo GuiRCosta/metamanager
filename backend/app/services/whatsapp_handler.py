@@ -46,6 +46,23 @@ class WhatsAppHandler:
         """Normaliza número de telefone removendo caracteres especiais."""
         return "".join(filter(str.isdigit, phone))
 
+    def _normalize_brazilian_phone(self, phone: str) -> str:
+        """
+        Normaliza número brasileiro para comparação, lidando com o 9º dígito.
+
+        Formato brasileiro:
+        - Com 9: 55 + DDD(2) + 9 + número(8) = 13 dígitos
+        - Sem 9: 55 + DDD(2) + número(8) = 12 dígitos
+
+        Retorna os últimos 8 dígitos (o número base sem o 9).
+        """
+        digits = self._normalize_phone(phone)
+
+        # Retornar últimos 8 dígitos (número base)
+        if len(digits) >= 8:
+            return digits[-8:]
+        return digits
+
     def _is_number_allowed(self, phone_number: str) -> bool:
         """
         Verifica se o número está na lista de permitidos.
@@ -77,18 +94,18 @@ class WhatsAppHandler:
             logger.info(f"WhatsApp enabled, no restrictions. Allowing {phone_number}")
             return True
 
-        # Normalizar número recebido
-        normalized_phone = self._normalize_phone(phone_number)
+        # Normalizar número recebido (últimos 8 dígitos para lidar com 9º dígito BR)
+        normalized_phone = self._normalize_brazilian_phone(phone_number)
 
-        # Verificar se está na lista (comparando apenas dígitos)
+        # Verificar se está na lista
         for allowed in allowed_numbers:
-            normalized_allowed = self._normalize_phone(allowed)
-            # Comparar os últimos dígitos (ignora código do país se não fornecido)
-            if normalized_phone.endswith(normalized_allowed) or normalized_allowed.endswith(normalized_phone):
-                logger.info(f"Number {phone_number} is in allowed list")
+            normalized_allowed = self._normalize_brazilian_phone(allowed)
+            # Comparar os últimos 8 dígitos (ignora 9º dígito e código do país)
+            if normalized_phone == normalized_allowed:
+                logger.info(f"Number {phone_number} is in allowed list (matched {allowed})")
                 return True
 
-        logger.warning(f"Number {phone_number} not in allowed list: {allowed_numbers}")
+        logger.warning(f"Number {phone_number} ({normalized_phone}) not in allowed list: {allowed_numbers}")
         return False
 
     def _get_conversation(self, phone_number: str) -> ConversationContext:
