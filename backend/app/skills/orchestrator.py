@@ -364,7 +364,11 @@ Responda APENAS com o nome da categoria, sem explicação."""
     ]
 
     # Mensagens curtas que sozinhas não fazem sentido sem contexto
-    SHORT_CONTEXT_MESSAGES = ["sim", "yes", "ok", "não", "no", "confirmar", "confirm", "cancela", "cancelar"]
+    SHORT_CONTEXT_MESSAGES = [
+        "sim", "yes", "ok", "não", "no", "confirmar", "confirm",
+        "cancela", "cancelar", "confirmo", "confirme", "s", "n",
+        "pode", "pode sim", "pode fazer", "faz", "faça", "vai", "beleza"
+    ]
 
     async def process_message(
         self,
@@ -392,22 +396,47 @@ Responda APENAS com o nome da categoria, sem explicação."""
         is_confirmed = confirmed_action is not None
         if is_confirmed:
             message = confirmed_action
+            logger.info(f"Received confirmed_action from frontend: '{message[:80]}'")
         else:
             # Se a mensagem é curta e sem sentido próprio (ex: "sim", "ok"),
             # usar o histórico para entender o contexto
-            if message.lower().strip() in self.SHORT_CONTEXT_MESSAGES and history:
-                # Buscar a última mensagem do usuário no histórico que tenha contexto
-                last_user_msg = None
-                for msg in reversed(history):
-                    if msg.get("role") == "user" and msg.get("content", "").lower().strip() not in self.SHORT_CONTEXT_MESSAGES:
-                        last_user_msg = msg["content"]
-                        break
+            message_clean = message.lower().strip()
+            if message_clean in self.SHORT_CONTEXT_MESSAGES and history:
+                logger.info(f"Short message detected: '{message}'. Searching history for context...")
 
-                if last_user_msg:
-                    # Tratar como confirmação da ação anterior
-                    logger.info(f"Short message '{message}' interpreted as confirmation of: '{last_user_msg}'")
-                    message = last_user_msg
+                # Primeiro, procurar pending_action em mensagens do assistant
+                pending_action_from_assistant = None
+                for msg in reversed(history):
+                    if msg.get("role") == "assistant":
+                        content = msg.get("content", "")
+                        # Procurar padrão de ação pendente: "Ação: _texto_"
+                        action_match = re.search(r'Ação:\s*_(.+?)_', content)
+                        if action_match:
+                            pending_action_from_assistant = action_match.group(1)
+                            logger.info(f"Found pending_action from assistant: '{pending_action_from_assistant}'")
+                            break
+
+                if pending_action_from_assistant:
+                    message = pending_action_from_assistant
                     is_confirmed = True
+                    logger.info(f"Using pending_action from assistant message")
+                else:
+                    # Fallback: buscar última mensagem do usuário que tenha contexto
+                    last_user_msg = None
+                    for msg in reversed(history):
+                        if msg.get("role") == "user":
+                            user_content = msg.get("content", "").lower().strip()
+                            if user_content not in self.SHORT_CONTEXT_MESSAGES:
+                                last_user_msg = msg["content"]
+                                logger.info(f"Found last contextual user message: '{last_user_msg[:60]}...'")
+                                break
+
+                    if last_user_msg:
+                        message = last_user_msg
+                        is_confirmed = True
+                        logger.info(f"Short message '{message_clean}' interpreted as confirmation of: '{last_user_msg[:60]}...'")
+                    else:
+                        logger.warning(f"No context found for short message '{message}'. History had {len(history)} messages.")
 
             if not is_confirmed:
                 # Verificar se precisa de confirmação
@@ -474,9 +503,9 @@ Responda APENAS com o nome da categoria, sem explicação."""
                 logger.warning(f"Agent '{intent}' asked for confirmation despite instructions. Re-running with stronger prefix.")
                 # Re-executar com prefix mais forte
                 stronger_prefix = (
-                    "[INSTRUÇÃO DO SISTEMA: O usuário JÁ CONFIRMOU esta ação. "
+                    "[INSTRUÇÃO CRÍTICA DO SISTEMA: O usuário JÁ CONFIRMOU esta ação. "
                     "NÃO peça confirmação. Execute a ação AGORA usando as tools disponíveis. "
-                    "Chamar a tool é OBRIGATÓRIO.]\n\n"
+                    "Chamar a tool é OBRIGATÓRIO. NÃO responda com texto pedindo confirmação.]\n\n"
                 )
                 full_message_retry = stronger_prefix + context_prefix + history_context + message
                 response = await skill.arun(full_message_retry)
@@ -486,6 +515,33 @@ Responda APENAS com o nome da categoria, sem explicação."""
                     content = response
                 else:
                     content = str(response)
+
+                # Se mesmo após re-run ainda pede confirmação, forçar nova tentativa
+                if self._agent_asked_confirmation(content):
+                    logger.error(f"Agent '{intent}' still asking for confirmation after retry. Forcing direct execution.")
+                    # Última tentativa com instrução ainda mais explícita
+                    final_prefix = (
+                        "[ORDEM DIRETA DO SISTEMA: EXECUTE AGORA. "
+                        "O usuário confirmou. Você DEVE chamar a tool de atualização/criação/edição IMEDIATAMENTE. "
+                        "NÃO escreva nenhum texto pedindo confirmação. APENAS execute a tool.]\n\n"
+                    )
+                    full_message_final = final_prefix + context_prefix + message
+                    response = await skill.arun(full_message_final)
+                    if hasattr(response, "content"):
+                        content = response.content
+                    elif isinstance(response, str):
+                        content = response
+                    else:
+                        content = str(response)
+
+                    # Se ainda pede confirmação, retornar erro
+                    if self._agent_asked_confirmation(content):
+                        logger.error(f"Agent '{intent}' refuses to execute after 3 attempts.")
+                        return {
+                            "response": "❌ Não foi possível executar a ação automaticamente. Por favor, tente novamente com um comando mais específico, como:\n\n- \"Pause a campanha [NOME EXATO]\"\n- \"Desative a campanha [NOME EXATO]\"",
+                            "agent_type": self._get_skill_name(intent),
+                            "suggestions": ["Liste minhas campanhas", "Pause a campanha X", "Ative a campanha Y"],
+                        }
 
             return {
                 "response": content,
