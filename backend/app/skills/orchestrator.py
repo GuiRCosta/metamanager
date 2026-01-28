@@ -258,6 +258,8 @@ Responda APENAS: analyzer, editor, creator, budget, audience, creative ou report
 
         try:
             base_url = settings.llm_base_url or "https://api.openai.com/v1"
+            # Usar modelo de routing se configurado, senão usa modelo principal
+            routing_model = settings.llm_routing_model or settings.llm_model
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(
                     f"{base_url}/chat/completions",
@@ -266,7 +268,7 @@ Responda APENAS: analyzer, editor, creator, budget, audience, creative ou report
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": settings.llm_model,
+                        "model": routing_model,
                         "messages": [{"role": "user", "content": classification_prompt}],
                         "max_tokens": 20,
                         "temperature": 0,

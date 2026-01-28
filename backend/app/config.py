@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     # LLM Provider (OpenAI, OpenRouter, ou qualquer API compatível)
     llm_api_key: str = ""
     llm_base_url: str = ""  # Vazio = OpenAI | https://openrouter.ai/api/v1 = OpenRouter
-    llm_model: str = "gpt-4o-mini"  # OpenRouter: openai/gpt-4o-mini, anthropic/claude-3.5-sonnet
+    llm_model: str = "gpt-4o-mini"  # Modelo para agentes (qualidade)
+    llm_routing_model: str = ""  # Modelo para classificação/routing (rápido). Se vazio, usa llm_model
     llm_whisper_model: str = "whisper-1"  # Transcrição de áudio (apenas OpenAI direto)
 
     # Evolution API (WhatsApp)
