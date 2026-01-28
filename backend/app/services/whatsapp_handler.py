@@ -4,10 +4,13 @@ Coordena o processamento de mídia e integração com o orquestrador de agentes.
 """
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 from app.models.whatsapp import WebhookEvent, MessageType, ConversationContext
 from app.services.media_processor import get_media_processor
 from app.services.evolution_client import get_evolution_client
@@ -50,14 +53,28 @@ class WhatsAppHandler:
         """
         evolution_settings = load_evolution_settings()
 
-        # Se não está habilitado, não processa
-        if not evolution_settings.get("enabled", False):
+        # Verificar se está habilitado:
+        # 1. Se 'enabled' está explícito no settings, usa esse valor
+        # 2. Se não está definido, verifica se Evolution API está configurada (env vars)
+        if "enabled" in evolution_settings:
+            is_enabled = evolution_settings["enabled"]
+        else:
+            # Auto-detectar: se Evolution está configurada, assumir habilitado
+            is_enabled = bool(
+                settings.evolution_api_url and
+                settings.evolution_api_key and
+                settings.evolution_instance
+            )
+
+        if not is_enabled:
+            logger.warning(f"WhatsApp disabled. Number {phone_number} rejected. Configure evolution.enabled or env vars.")
             return False
 
         allowed_numbers = evolution_settings.get("allowed_numbers", [])
 
         # Se lista vazia, permite todos
         if not allowed_numbers:
+            logger.info(f"WhatsApp enabled, no restrictions. Allowing {phone_number}")
             return True
 
         # Normalizar número recebido
@@ -68,8 +85,10 @@ class WhatsAppHandler:
             normalized_allowed = self._normalize_phone(allowed)
             # Comparar os últimos dígitos (ignora código do país se não fornecido)
             if normalized_phone.endswith(normalized_allowed) or normalized_allowed.endswith(normalized_phone):
+                logger.info(f"Number {phone_number} is in allowed list")
                 return True
 
+        logger.warning(f"Number {phone_number} not in allowed list: {allowed_numbers}")
         return False
 
     def _get_conversation(self, phone_number: str) -> ConversationContext:
