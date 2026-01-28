@@ -229,27 +229,32 @@ class CampaignOrchestrator:
 
     async def _detect_intent_by_llm(self, message: str) -> str:
         """
-        Usa o LLM via OpenRouter para classificar o intent quando keywords são ambíguas.
+        Usa o LLM via OpenRouter para classificar o intent.
         Chamada rápida com prompt curto e max_tokens baixo.
         """
         valid_intents = list(self.INTENT_KEYWORDS.keys())
 
-        classification_prompt = f"""Classifique a mensagem do usuário em EXATAMENTE uma categoria para um sistema de gerenciamento de campanhas Meta Ads.
+        classification_prompt = f"""Classifique a mensagem em UMA categoria para gerenciamento de campanhas Meta Ads.
 
-Categorias:
-- creator: criar campanhas, ad sets, ads NOVOS do zero
-- editor: ver, listar, mostrar, consultar detalhes, editar, pausar, ativar, desativar, duplicar, excluir campanhas existentes. Qualquer pergunta sobre uma campanha específica pelo nome vai aqui.
-- audience: público-alvo, targeting, interesses, segmentação, localização, demografia
-- creative: criativos, imagens, vídeos, carrossel, formatos de anúncio
-- budget: orçamento, gastos, verba, investimento, projeção de custos, alocação de budget
-- analyzer: análise de performance, métricas numéricas (CTR, CPC, CPM, ROAS), comparações entre campanhas, tendências
-- reporter: relatórios formais, resumos, exportar dados, visão geral da conta
+CATEGORIAS:
+- analyzer: perguntas sobre performance, métricas (CTR, CPC, CPM, ROAS), "como está", comparações, resultados, impressões, cliques
+- editor: ações em campanhas existentes - pausar, ativar, desativar, listar, mostrar, editar, duplicar, excluir
+- creator: criar campanhas/ads/ad sets NOVOS do zero
+- budget: orçamento, gastos, verba, investimento, projeção de custos
+- audience: público-alvo, targeting, interesses, segmentação
+- creative: criativos, imagens, vídeos, formatos de anúncio
+- reporter: relatórios formais, exportar dados
 
-Regra importante: se a mensagem menciona uma campanha específica pelo nome e NÃO pede análise de métricas, use "editor".
+REGRAS:
+1. "Como está a performance/campanhas?" → analyzer
+2. "Pause/ative/desative a campanha X" → editor
+3. "Liste campanhas" → editor
+4. "Crie uma campanha" → creator
+5. "Qual o orçamento?" → budget
 
 Mensagem: "{message}"
 
-Responda APENAS com o nome da categoria, sem explicação."""
+Responda APENAS: analyzer, editor, creator, budget, audience, creative ou reporter"""
 
         try:
             base_url = settings.llm_base_url or "https://api.openai.com/v1"
@@ -284,17 +289,21 @@ Responda APENAS com o nome da categoria, sem explicação."""
 
     async def _detect_intent(self, message: str) -> str:
         """
-        Detecção híbrida: keywords para casos claros, LLM para ambíguos.
+        LLM-First: usa LLM para classificar intenção (mais preciso que keywords).
+        Keywords são usadas apenas como fallback se LLM falhar.
         """
-        intent, score = self._detect_intent_by_keywords(message)
-
-        if score >= KEYWORD_CONFIDENCE_THRESHOLD:
-            logger.info(f"Keyword intent (score={score}): '{message[:50]}...' -> {intent}")
+        # Tentar classificação por LLM primeiro (mais preciso)
+        try:
+            intent = await self._detect_intent_by_llm(message)
+            logger.info(f"LLM-First routing: '{message[:50]}...' -> {intent}")
             return intent
+        except Exception as e:
+            logger.warning(f"LLM classification failed ({e}), falling back to keywords")
 
-        # Score baixo ou zero: usar LLM para classificar
-        logger.info(f"Low keyword score ({score}), using LLM for: '{message[:50]}...'")
-        return await self._detect_intent_by_llm(message)
+        # Fallback: usar keywords se LLM falhar
+        intent, score = self._detect_intent_by_keywords(message)
+        logger.info(f"Keyword fallback (score={score}): '{message[:50]}...' -> {intent}")
+        return intent
 
     def _get_skill_name(self, intent: str) -> str:
         """Retorna o nome amigável do skill."""
