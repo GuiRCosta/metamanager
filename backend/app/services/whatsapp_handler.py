@@ -269,6 +269,13 @@ class WhatsAppHandler:
                 )
                 user_input = transcription
 
+                # Enviar a transcrição para o usuário saber o que foi entendido
+                if transcription and not transcription.startswith("[Erro"):
+                    await self.evolution_client.send_text(
+                        number=phone_number,
+                        text=f"🎤 *Entendi:* _{transcription}_",
+                    )
+
             elif msg_type == MessageType.IMAGE:
                 # Imagem não suportada por enquanto
                 await self.evolution_client.send_text(
