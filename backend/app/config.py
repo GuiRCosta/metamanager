@@ -15,7 +15,12 @@ class Settings(BaseSettings):
     llm_base_url: str = ""  # Vazio = OpenAI | https://openrouter.ai/api/v1 = OpenRouter
     llm_model: str = "gpt-4o-mini"  # Modelo para agentes (qualidade)
     llm_routing_model: str = ""  # Modelo para classificação/routing (rápido). Se vazio, usa llm_model
-    llm_whisper_model: str = "whisper-1"  # Transcrição de áudio (apenas OpenAI direto)
+
+    # Transcrição de Áudio
+    # Provider: "whisper" (OpenAI direto) ou "openrouter" (Gemini via OpenRouter)
+    transcription_provider: str = "openrouter"  # whisper | openrouter
+    transcription_model: str = "google/gemini-2.5-flash"  # Modelo para transcrição (openrouter)
+    llm_whisper_model: str = "whisper-1"  # Modelo Whisper (se provider=whisper)
 
     # Evolution API (WhatsApp)
     evolution_api_url: str = ""  # Ex: https://evolution.seudominio.com
