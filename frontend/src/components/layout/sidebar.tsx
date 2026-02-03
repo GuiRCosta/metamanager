@@ -15,6 +15,7 @@ import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { Logo } from "@/components/ui/logo"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -41,9 +42,8 @@ export function Sidebar({ budgetUsed = 0, budgetLimit = 5000 }: SidebarProps) {
   return (
     <div className="flex h-full w-64 flex-col border-r bg-background">
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Megaphone className="h-6 w-6 text-primary" />
-          <span className="font-semibold">Campaign Manager</span>
+        <Link href="/dashboard" className="flex items-center">
+          <Logo width={100} height={26} />
         </Link>
       </div>
 
