@@ -581,8 +581,8 @@ export default function CampaignsPage() {
                     <SelectTrigger id="duplicate-count" className="mt-2">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                    <SelectContent className="max-h-60">
+                      {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => (
                         <SelectItem key={n} value={n.toString()}>
                           {n} {n === 1 ? "cópia" : "cópias"}
                         </SelectItem>
