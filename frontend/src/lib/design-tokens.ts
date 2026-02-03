@@ -10,8 +10,48 @@
 // =============================================================================
 
 export const colors = {
-  // Brand Colors - Meta inspired
+  // Brand Colors - iDEVA
   brand: {
+    // iDEVA Navy - Primary brand color
+    navy: {
+      50: "#E8EAF0",
+      100: "#C5CAD9",
+      200: "#9FA8C0",
+      300: "#7986A7",
+      400: "#5C6B94",
+      500: "#3F5081",
+      600: "#374779",
+      700: "#2D3B6E",
+      800: "#242F64",
+      900: "#0F172A", // iDEVA Navy (main logo color)
+    },
+    // iDEVA Gold - Accent color
+    gold: {
+      50: "#FBF7E8",
+      100: "#F5EBC5",
+      200: "#EFDE9F",
+      300: "#E8D178",
+      400: "#E3C75B",
+      500: "#C9A227", // iDEVA Gold (logo accent)
+      600: "#B8960C",
+      700: "#9A7D0A",
+      800: "#7C6508",
+      900: "#5E4C06",
+    },
+    // iDEVA Light - For dark backgrounds
+    light: {
+      50: "#FFFFFF",
+      100: "#FEFEFE",
+      200: "#FAFAFA",
+      300: "#F7F7F5",
+      400: "#F5F5F0", // iDEVA Light (logo on dark)
+      500: "#EBEBEB",
+      600: "#D4D4D4",
+      700: "#A3A3A3",
+      800: "#737373",
+      900: "#525252",
+    },
+    // Legacy Meta colors (keeping for compatibility)
     primary: {
       50: "#E7F0FF",
       100: "#C2D9FF",
