@@ -20,7 +20,7 @@ import { Logo } from "@/components/ui/logo"
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Campanhas", href: "/campaigns", icon: Megaphone },
-  { name: "Agente IA", href: "/agent", icon: MessageSquare },
+  { name: "Agente IA (Beta)", href: "/agent", icon: MessageSquare },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Alertas", href: "/alerts", icon: Bell },
   { name: "Configurações", href: "/settings", icon: Settings },
