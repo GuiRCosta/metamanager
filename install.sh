@@ -78,6 +78,12 @@ read -p "LLM Model [gpt-4o-mini]: " LLM_MODEL
 LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
 
 echo ""
+echo -e "${BLUE}=== OpenAI - Transcrição de Áudio (Whisper) ===${NC}"
+read -p "OpenAI API Key (para transcrição de áudio): " OPENAI_API_KEY
+read -p "Whisper Model [whisper-1]: " WHISPER_MODEL
+WHISPER_MODEL=${WHISPER_MODEL:-whisper-1}
+
+echo ""
 echo -e "${BLUE}=== Meta API (opcional - pode configurar via UI depois) ===${NC}"
 read -p "Meta Access Token (vazio para pular): " META_ACCESS_TOKEN
 read -p "Meta Business ID: " META_BUSINESS_ID
@@ -126,7 +132,10 @@ NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
 LLM_API_KEY=${LLM_API_KEY}
 LLM_BASE_URL=${LLM_BASE_URL}
 LLM_MODEL=${LLM_MODEL}
-LLM_WHISPER_MODEL=whisper-1
+
+# OpenAI - Transcrição de Áudio (Whisper)
+OPENAI_API_KEY=${OPENAI_API_KEY}
+WHISPER_MODEL=${WHISPER_MODEL}
 
 # Meta API (opcional)
 META_ACCESS_TOKEN=${META_ACCESS_TOKEN}

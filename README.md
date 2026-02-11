@@ -56,7 +56,10 @@ META_API_VERSION=v24.0
 LLM_API_KEY=sk-proj-xxx
 LLM_BASE_URL=                     # Vazio = OpenAI | https://openrouter.ai/api/v1 = OpenRouter
 LLM_MODEL=gpt-4o-mini             # OpenRouter: openai/gpt-4o-mini, anthropic/claude-3.5-sonnet
-LLM_WHISPER_MODEL=whisper-1       # Transcrição de áudio (apenas OpenAI direto)
+
+# OpenAI - Transcrição de Áudio (Whisper)
+OPENAI_API_KEY=sk-xxx
+WHISPER_MODEL=whisper-1
 
 FRONTEND_URL=http://localhost:3000
 
