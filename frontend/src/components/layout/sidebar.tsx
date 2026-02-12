@@ -42,8 +42,8 @@ export function Sidebar({ budgetUsed = 0, budgetLimit = 5000 }: SidebarProps) {
   }
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-background">
-      <div className="flex h-16 items-center border-b px-6">
+    <div className="flex h-full w-64 flex-col glass-surface shadow-glass-sm">
+      <div className="flex h-16 items-center border-b border-white/10 px-6">
         <Link href="/dashboard" className="flex items-center">
           <Logo width={100} height={26} />
         </Link>
@@ -57,10 +57,10 @@ export function Sidebar({ budgetUsed = 0, budgetLimit = 5000 }: SidebarProps) {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
                 isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-white/30 dark:hover:bg-white/10 hover:text-foreground"
               )}
             >
               <item.icon className="h-5 w-5" />
@@ -70,8 +70,8 @@ export function Sidebar({ budgetUsed = 0, budgetLimit = 5000 }: SidebarProps) {
         })}
       </nav>
 
-      <div className="border-t p-4">
-        <div className="mb-4 rounded-lg bg-muted p-4">
+      <div className="border-t border-white/10 p-4">
+        <div className="mb-4 rounded-2xl p-4 bg-card-subtle">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium">Orçamento Mensal</span>
             <span className="text-muted-foreground">

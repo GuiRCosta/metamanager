@@ -145,7 +145,8 @@ export const colors = {
 export const typography = {
   // Font Families
   fontFamily: {
-    sans: "var(--font-geist-sans), system-ui, -apple-system, sans-serif",
+    sans: "var(--font-sans), system-ui, -apple-system, sans-serif",
+    heading: "var(--font-heading), system-ui, -apple-system, sans-serif",
     mono: "var(--font-geist-mono), ui-monospace, monospace",
   },
 
@@ -254,6 +255,10 @@ export const shadows = {
   primary: "0 4px 14px 0 rgba(24, 119, 242, 0.39)",
   success: "0 4px 14px 0 rgba(16, 185, 129, 0.39)",
   error: "0 4px 14px 0 rgba(239, 68, 68, 0.39)",
+  // Glass shadows
+  glass: "rgba(255,255,255,0.1) 0px 1px 1px 0px inset, rgba(50,50,93,0.25) 0px 50px 100px -20px, rgba(0,0,0,0.3) 0px 30px 60px -30px",
+  glassSm: "rgba(255,255,255,0.1) 0px 1px 1px 0px inset, rgba(50,50,93,0.12) 0px 25px 50px -15px, rgba(0,0,0,0.15) 0px 15px 30px -15px",
+  buttonMulti: "0 2.8px 2.2px rgba(0,0,0,0.034), 0 6.7px 5.3px rgba(0,0,0,0.048), 0 12.5px 10px rgba(0,0,0,0.06), 0 22.3px 17.9px rgba(0,0,0,0.072), 0 41.8px 33.4px rgba(0,0,0,0.086), 0 100px 80px rgba(0,0,0,0.12)",
 } as const
 
 // =============================================================================
@@ -270,6 +275,7 @@ export const animation = {
     slow: "300ms",
     slower: "400ms",
     slowest: "500ms",
+    entrance: "800ms",
   },
 
   // Easing
@@ -279,6 +285,7 @@ export const animation = {
     easeOut: "cubic-bezier(0, 0, 0.2, 1)",
     easeInOut: "cubic-bezier(0.4, 0, 0.2, 1)",
     bounce: "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+    entrance: "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
   },
 } as const
 
@@ -322,8 +329,8 @@ export const components = {
   // Card
   card: {
     padding: spacing[6],
-    borderRadius: borderRadius.lg,
-    shadow: shadows.sm,
+    borderRadius: borderRadius["2xl"],
+    shadow: shadows.glassSm,
   },
 
   // Button
@@ -338,7 +345,7 @@ export const components = {
       md: `${spacing[2.5]} ${spacing[4]}`,
       lg: `${spacing[3]} ${spacing[6]}`,
     },
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.full,
     fontSize: {
       sm: typography.fontSize.sm,
       md: typography.fontSize.sm,
@@ -409,6 +416,20 @@ export function getMetricColor(metric: string): string {
 }
 
 // =============================================================================
+// SURFACES
+// =============================================================================
+
+export const surfaces = {
+  pageBg: "var(--page-bg)",
+  glass: {
+    bg: "var(--glass-bg)",
+    blur: "var(--glass-blur)",
+    border: "var(--glass-border)",
+  },
+  cardSubtle: "var(--card-subtle)",
+} as const
+
+// =============================================================================
 // EXPORTS
 // =============================================================================
 
@@ -422,6 +443,7 @@ export const tokens = {
   breakpoints,
   zIndex,
   components,
+  surfaces,
 } as const
 
 export type DesignTokens = typeof tokens

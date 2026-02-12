@@ -51,7 +51,7 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-glass animate-fade-in">
       <CardHeader className="space-y-1">
         <div className="flex items-center justify-center gap-2 mb-4">
           <Megaphone className="h-8 w-8 text-primary" />

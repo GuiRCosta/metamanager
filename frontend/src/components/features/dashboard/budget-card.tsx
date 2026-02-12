@@ -52,7 +52,7 @@ export function BudgetCard({ spent, limit, projected }: BudgetCardProps) {
             </p>
           </div>
 
-          <div className="rounded-lg bg-muted p-3">
+          <div className="rounded-2xl p-3 bg-card-subtle">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Projeção Mensal</span>
               {isOverBudget && (
