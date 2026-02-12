@@ -10,6 +10,7 @@ import {
   Bell,
   Settings,
   LogOut,
+  BookOpen,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Agente IA (Beta)", href: "/agent", icon: MessageSquare },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Alertas", href: "/alerts", icon: Bell },
+  { name: "Documentação", href: "/docs", icon: BookOpen },
   { name: "Configurações", href: "/settings", icon: Settings },
 ]
 
