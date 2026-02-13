@@ -22,7 +22,7 @@ import { alertsApi, type Alert, type AlertType, type AlertPriority } from "@/lib
 const typeConfig: Record<AlertType, { icon: typeof AlertTriangle; color: string; label: string }> = {
   budget: { icon: AlertTriangle, color: "text-yellow-500", label: "Orçamento" },
   performance: { icon: TrendingDown, color: "text-red-500", label: "Performance" },
-  status: { icon: Activity, color: "text-blue-500", label: "Status" },
+  status: { icon: Activity, color: "text-primary", label: "Status" },
   optimization: { icon: Lightbulb, color: "text-green-500", label: "Otimização" },
 }
 

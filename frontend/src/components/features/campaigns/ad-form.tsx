@@ -196,7 +196,7 @@ export function AdForm({
                     <div
                       key={creative.id}
                       className={cn(
-                        "relative cursor-pointer rounded-lg border-2 p-2 transition-all hover:border-primary/50",
+                        "relative cursor-pointer rounded-xl border-2 p-2 transition-all hover:border-primary/50",
                         formData.creative_id === creative.id
                           ? "border-primary bg-primary/5"
                           : "border-muted"
@@ -242,7 +242,7 @@ export function AdForm({
 
                 {/* Selected Creative Info */}
                 {selectedCreative && (
-                  <div className="rounded-lg bg-muted/50 p-3">
+                  <div className="rounded-xl bg-muted/50 p-3">
                     <p className="text-sm font-medium">
                       Selecionado: {selectedCreative.name || "Sem nome"}
                     </p>

@@ -63,12 +63,12 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
 
         <div
           className={cn(
-            "rounded-lg px-4 py-2",
+            "rounded-xl px-4 py-2",
             isUser
               ? "bg-primary text-primary-foreground"
               : isConfirmation
                 ? "border-2 border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
-                : "bg-muted text-foreground"
+                : "bg-card-subtle text-foreground"
           )}
         >
           {isUser ? (

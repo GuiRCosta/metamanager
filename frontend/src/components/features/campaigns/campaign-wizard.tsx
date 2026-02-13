@@ -306,7 +306,7 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+        <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-destructive">
           {error}
         </div>
       )}
@@ -341,7 +341,7 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
                   <div
                     key={obj.value}
                     className={cn(
-                      "cursor-pointer rounded-lg border p-4 transition-colors hover:border-primary",
+                      "cursor-pointer rounded-xl border p-4 transition-colors hover:border-primary",
                       campaign.objective === obj.value && "border-primary bg-primary/5"
                     )}
                     onClick={() => setCampaign((prev) => ({ ...prev, objective: obj.value }))}
@@ -551,7 +551,7 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
                   <Megaphone className="h-4 w-4" />
                   Campanha
                 </h3>
-                <div className="grid gap-4 md:grid-cols-2 bg-muted/50 rounded-lg p-4">
+                <div className="grid gap-4 md:grid-cols-2 bg-muted/50 rounded-xl p-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Nome</p>
                     <p className="font-medium">{campaign.name}</p>
@@ -581,7 +581,7 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
                   <Users className="h-4 w-4" />
                   Público-Alvo
                 </h3>
-                <div className="grid gap-4 md:grid-cols-2 bg-muted/50 rounded-lg p-4">
+                <div className="grid gap-4 md:grid-cols-2 bg-muted/50 rounded-xl p-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Idade</p>
                     <p className="font-medium">{adSet.age_min} - {adSet.age_max} anos</p>
@@ -630,7 +630,7 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
               {/* Reach Estimate */}
               <div className="space-y-4">
                 <h3 className="font-semibold">Estimativa de Alcance</h3>
-                <div className="bg-primary/5 rounded-lg p-6 text-center">
+                <div className="bg-primary/5 rounded-xl p-6 text-center">
                   {loadingReach ? (
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
                   ) : reachEstimate ? (
