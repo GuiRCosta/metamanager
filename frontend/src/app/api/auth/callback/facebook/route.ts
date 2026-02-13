@@ -37,16 +37,18 @@ interface TokenResponse {
   token_type?: string
 }
 
-interface Business {
+interface AssignedAdAccount {
   id: string
-  name: string
-}
-
-interface AdAccount {
   account_id: string
   name?: string
   account_status?: number
-  currency?: string
+}
+
+interface AdAccountBusiness {
+  business?: {
+    id: string
+    name: string
+  }
 }
 
 async function exchangeCodeForToken(code: string): Promise<TokenResponse> {
@@ -71,16 +73,16 @@ async function exchangeCodeForToken(code: string): Promise<TokenResponse> {
   return response.json()
 }
 
-async function fetchBusinesses(
+async function fetchAssignedAdAccounts(
   accessToken: string
-): Promise<Business[]> {
+): Promise<AssignedAdAccount[]> {
   const params = new URLSearchParams({
     access_token: accessToken,
-    fields: "id,name",
+    fields: "id,name,account_id,account_status",
   })
 
   const response = await fetch(
-    `${GRAPH_API_BASE}/me/businesses?${params.toString()}`
+    `${GRAPH_API_BASE}/me/assigned_ad_accounts?${params.toString()}`
   )
 
   if (!response.ok) {
@@ -91,25 +93,24 @@ async function fetchBusinesses(
   return data.data || []
 }
 
-async function fetchAdAccounts(
+async function fetchBusinessFromAdAccount(
   accessToken: string,
-  businessId: string
-): Promise<AdAccount[]> {
+  adAccountId: string
+): Promise<AdAccountBusiness> {
   const params = new URLSearchParams({
     access_token: accessToken,
-    fields: "name,account_id,account_status,currency",
+    fields: "business",
   })
 
   const response = await fetch(
-    `${GRAPH_API_BASE}/${businessId}/owned_ad_accounts?${params.toString()}`
+    `${GRAPH_API_BASE}/${adAccountId}?${params.toString()}`
   )
 
   if (!response.ok) {
-    return []
+    return {}
   }
 
-  const data = await response.json()
-  return data.data || []
+  return response.json()
 }
 
 async function saveSettingsToBackend(settings: {
@@ -168,18 +169,19 @@ export async function GET(request: NextRequest) {
     const tokenData = await exchangeCodeForToken(code)
     const accessToken = tokenData.access_token
 
-    const businesses = await fetchBusinesses(accessToken)
-    const firstBusiness = businesses[0]
-    const businessId = firstBusiness?.id || ""
-    const businessName = firstBusiness?.name || ""
+    const adAccounts = await fetchAssignedAdAccounts(accessToken)
+    const firstAccount = adAccounts[0]
+    const adAccountId = firstAccount?.account_id || ""
 
-    let adAccountId = ""
-    if (businessId) {
-      const adAccounts = await fetchAdAccounts(accessToken, businessId)
-      const firstAccount = adAccounts[0]
-      if (firstAccount) {
-        adAccountId = firstAccount.account_id
-      }
+    let businessId = ""
+    let businessName = ""
+    if (firstAccount) {
+      const accountDetails = await fetchBusinessFromAdAccount(
+        accessToken,
+        firstAccount.id
+      )
+      businessId = accountDetails.business?.id || ""
+      businessName = accountDetails.business?.name || ""
     }
 
     await saveSettingsToBackend({
