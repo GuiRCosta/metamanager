@@ -55,14 +55,14 @@ const docCategories: DocCategory[] = [
         title: "Primeiros Passos",
         keywords: ["primeiros passos", "começar", "início", "configurar"],
         content:
-          "1. **Configurar a Meta API** — Acesse Configurações > Meta API e insira seu Access Token, Business ID e Ad Account ID. Você pode obter essas credenciais no Graph API Explorer do Meta.\n\n2. **Selecionar a conta de anúncios** — Use o seletor no topo da página para escolher a conta que deseja gerenciar. Você pode alternar entre contas a qualquer momento.\n\n3. **Explorar o Dashboard** — O Dashboard mostra um resumo das suas métricas, orçamento e alertas ativos. É o ponto de partida para monitorar suas campanhas.\n\n4. **Criar sua primeira campanha** — Vá em Campanhas > Nova Campanha e siga o assistente passo a passo.",
+          "1. **Conectar com o Facebook** — Acesse Configurações > Meta API e clique em \"Conectar com Facebook\". Autorize o aplicativo e selecione as contas de anúncios que deseja gerenciar. Suas credenciais serão configuradas automaticamente.\n\n2. **Selecionar a conta de anúncios** — Use o seletor no topo da página para escolher a conta que deseja gerenciar. Você pode alternar entre contas a qualquer momento.\n\n3. **Explorar o Dashboard** — O Dashboard mostra um resumo das suas métricas, orçamento e alertas ativos. É o ponto de partida para monitorar suas campanhas.\n\n4. **Criar sua primeira campanha** — Vá em Campanhas > Nova Campanha e siga o assistente passo a passo.",
       },
       {
         id: "navigation",
         title: "Navegação na Plataforma",
         keywords: ["navegação", "menu", "sidebar", "tela"],
         content:
-          "A plataforma possui um menu lateral (sidebar) com as seguintes seções:\n\n- **Dashboard** — Visão geral das métricas e orçamento\n- **Campanhas** — Listagem e gerenciamento de campanhas\n- **Agente IA** — Chat inteligente para análise de dados\n- **Analytics** — Métricas detalhadas e gráficos\n- **Alertas** — Notificações de problemas e oportunidades\n- **Configurações** — Integrações e preferências\n\nNo topo da página, você encontra o seletor de conta, botão de sincronização, alertas e configuração de tema (claro/escuro).",
+          "A plataforma possui um menu lateral (sidebar) com as seguintes seções:\n\n- **Dashboard** — Visão geral das métricas e orçamento\n- **Campanhas** — Listagem e gerenciamento de campanhas\n- **Agente IA (Beta)** — Chat inteligente para análise de dados\n- **Analytics** — Métricas detalhadas e gráficos\n- **Alertas** — Notificações de problemas e oportunidades\n- **Documentação** — Guia completo de uso da plataforma\n- **Configurações** — Integrações e preferências\n\nNo topo da página, você encontra o seletor de conta, botão de sincronização, alertas e configuração de tema (claro/escuro).",
       },
     ],
   },
@@ -183,9 +183,9 @@ const docCategories: DocCategory[] = [
       {
         id: "meta-api-setup",
         title: "Conectar a Meta API",
-        keywords: ["meta", "api", "token", "access token", "business id", "conectar"],
+        keywords: ["meta", "api", "facebook", "conectar", "login", "FBL"],
         content:
-          "Para conectar sua conta do Meta à plataforma:\n\n1. Acesse **Configurações > Meta API**\n2. Preencha os campos:\n   - **Access Token** — Obtenha no Graph API Explorer (developers.facebook.com/tools/explorer/) com as permissões: ads_read, ads_management, business_management\n   - **Business ID** — Encontre em business.facebook.com/settings, na URL (business_id=XXX)\n   - **Ad Account ID** — Encontre no Gerenciador de Anúncios, na URL da conta\n3. Clique em **Testar Conexão** para verificar as credenciais\n4. Salve as configurações\n\nApós conectar, a plataforma sincronizará automaticamente as campanhas e métricas da sua conta.",
+          "Para conectar sua conta do Meta à plataforma:\n\n1. Acesse **Configurações > Meta API**\n2. Clique no botão **Conectar com Facebook**\n3. Você será redirecionado para a tela de autorização do Facebook\n4. Autorize o aplicativo e selecione as contas de anúncios e Business Managers que deseja gerenciar\n5. Após autorizar, você será redirecionado de volta para a plataforma com uma mensagem de sucesso\n\nAs credenciais (Access Token, Business ID e Ad Account ID) são configuradas automaticamente via Facebook Login for Business. O token gerado é permanente e não expira.\n\nApós conectar, a plataforma sincronizará automaticamente as campanhas e métricas da sua conta.",
       },
       {
         id: "budget-alerts",
@@ -218,17 +218,17 @@ const docCategories: DocCategory[] = [
     sections: [
       {
         id: "faq-token-expired",
-        title: "Meu Access Token expirou. O que fazer?",
-        keywords: ["token", "expirou", "expirado", "renovar", "erro"],
+        title: "Meu Access Token expirou ou a conexão parou de funcionar. O que fazer?",
+        keywords: ["token", "expirou", "expirado", "renovar", "erro", "reconectar"],
         content:
-          "Os tokens do Meta expiram periodicamente. Para renová-lo:\n\n1. Acesse o Graph API Explorer (developers.facebook.com/tools/explorer/)\n2. Selecione seu aplicativo\n3. Marque as permissões: ads_read, ads_management, business_management\n4. Clique em \"Gerar Token de Acesso\"\n5. Copie o novo token e cole em Configurações > Meta API\n6. Teste a conexão e salve\n\nPara tokens de longa duração, considere configurar um System User no Business Manager.",
+          "O token gerado pelo Facebook Login for Business (FBL) é permanente e normalmente não expira. Porém, ele pode ser invalidado se:\n\n- As permissões do aplicativo foram revogadas manualmente\n- O administrador do Business Manager removeu o acesso\n- A conta de anúncios foi desativada\n\nPara reconectar:\n\n1. Acesse **Configurações > Meta API**\n2. Clique novamente em **Conectar com Facebook**\n3. Autorize o aplicativo\n4. As credenciais serão atualizadas automaticamente",
       },
       {
         id: "faq-no-data",
         title: "As métricas estão zeradas ou não carregam",
         keywords: ["zerado", "zero", "não carrega", "vazio", "sem dados"],
         content:
-          "Se as métricas não estão aparecendo:\n\n1. **Verifique a conta selecionada** — Use o seletor no topo para garantir que a conta correta está selecionada\n2. **Verifique o período** — Certifique-se de que há campanhas ativas no período selecionado\n3. **Teste a conexão** — Em Configurações > Meta API, clique em \"Testar Conexão\"\n4. **Sincronize** — Use o botão de atualização no topo da página\n5. **Verifique o Access Token** — Tokens expirados podem causar falha na coleta de dados",
+          "Se as métricas não estão aparecendo:\n\n1. **Verifique se conectou com o Facebook** — Acesse Configurações > Meta API e verifique se a conexão está ativa\n2. **Verifique a conta selecionada** — Use o seletor no topo para garantir que a conta correta está selecionada\n3. **Verifique o período** — Certifique-se de que há campanhas ativas no período selecionado\n4. **Sincronize** — Use o botão de atualização no topo da página\n5. **Reconecte se necessário** — Clique em \"Conectar com Facebook\" novamente para renovar as credenciais",
       },
       {
         id: "faq-budget-exceeded",

@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { signIn } from "next-auth/react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -96,17 +95,11 @@ export function LoginForm() {
             )}
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4">
+        <CardFooter>
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Entrar
           </Button>
-          <p className="text-sm text-muted-foreground">
-            Não tem uma conta?{" "}
-            <Link href="/register" className="text-primary hover:underline">
-              Criar conta
-            </Link>
-          </p>
         </CardFooter>
       </form>
     </Card>
