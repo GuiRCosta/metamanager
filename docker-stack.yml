@@ -59,6 +59,11 @@ services:
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - AUTH_TRUST_HOST=true
       - BACKEND_API_URL=http://metamanager_backend:8000
+
+      # Facebook Login for Business (OAuth)
+      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID:-}
+      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET:-}
+      - FACEBOOK_CONFIG_ID=${FACEBOOK_CONFIG_ID:-}
     networks:
       - IdevaNet
     deploy:

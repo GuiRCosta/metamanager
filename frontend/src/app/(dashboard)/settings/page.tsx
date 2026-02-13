@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Save, Key, Bell, Target, Loader2, CheckCircle, XCircle, MessageCircle, Plus, X } from "lucide-react"
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { Save, Key, Bell, Target, Loader2, CheckCircle, XCircle, MessageCircle, Plus, X, Link2 } from "lucide-react"
+import { parseMetaConnectionParams, getMetaErrorMessage } from "@/lib/meta-connection"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +24,9 @@ import {
   type WhatsAppSchedulerStatus,
 } from "@/lib/api"
 
-export default function SettingsPage() {
+function SettingsPageContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
@@ -33,6 +37,10 @@ export default function SettingsPage() {
   const [isSendingReport, setIsSendingReport] = useState(false)
   const [whatsappTestResult, setWhatsappTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [schedulerStatus, setSchedulerStatus] = useState<WhatsAppSchedulerStatus | null>(null)
+  const [connectionMessage, setConnectionMessage] = useState<{
+    type: "success" | "error"
+    message: string
+  } | null>(null)
 
   // Settings state
   const [budget, setBudget] = useState<BudgetSettings>({
@@ -96,6 +104,31 @@ export default function SettingsPage() {
     }
     loadSettings()
   }, [])
+
+  // Handle FBL callback params
+  useEffect(() => {
+    const connectionStatus = parseMetaConnectionParams(
+      new URLSearchParams(searchParams.toString())
+    )
+
+    if (connectionStatus.isConnected) {
+      const businessName = connectionStatus.businessName || "sua empresa"
+      setConnectionMessage({
+        type: "success",
+        message: `Conectado com sucesso! Empresa: ${businessName}`,
+      })
+      router.replace("/settings", { scroll: false })
+    } else if (connectionStatus.error) {
+      setConnectionMessage({
+        type: "error",
+        message: getMetaErrorMessage(
+          connectionStatus.error,
+          connectionStatus.errorDescription
+        ),
+      })
+      router.replace("/settings", { scroll: false })
+    }
+  }, [searchParams, router])
 
   // Load scheduler status
   useEffect(() => {
@@ -346,6 +379,71 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {connectionMessage && (
+                <div
+                  className={`flex items-center gap-3 rounded-lg border p-4 ${
+                    connectionMessage.type === "success"
+                      ? "border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200"
+                      : "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
+                  }`}
+                >
+                  {connectionMessage.type === "success" ? (
+                    <CheckCircle className="h-5 w-5 shrink-0" />
+                  ) : (
+                    <XCircle className="h-5 w-5 shrink-0" />
+                  )}
+                  <div>
+                    <p className="font-medium">
+                      {connectionMessage.type === "success"
+                        ? "Facebook Conectado"
+                        : "Erro na Conexao"}
+                    </p>
+                    <p className="text-sm">{connectionMessage.message}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="font-medium flex items-center gap-2">
+                      <Link2 className="h-4 w-4" />
+                      Conexao Rapida
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Conecte sua conta do Facebook para configurar automaticamente
+                      o token de acesso, Business Manager e conta de anuncios.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      window.location.href = "/api/meta/connect"
+                    }}
+                    className="shrink-0"
+                  >
+                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                    Conectar com Facebook
+                  </Button>
+                </div>
+
+                {metaApi.access_token && (
+                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                    <CheckCircle className="h-4 w-4" />
+                    Token de acesso configurado
+                    {metaApi.business_id && ` | Business ID: ${metaApi.business_id}`}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              <p className="text-sm text-muted-foreground">
+                Ou configure manualmente os campos abaixo:
+              </p>
+
               <div className="space-y-2">
                 <Label htmlFor="accessToken">Access Token</Label>
                 <Input
@@ -872,5 +970,19 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <SettingsPageContent />
+    </Suspense>
   )
 }
