@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Save, Key, Bell, Target, Loader2, CheckCircle, XCircle, MessageCircle, Plus, X, Link2 } from "lucide-react"
 import { parseMetaConnectionParams, getMetaErrorMessage } from "@/lib/meta-connection"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -27,6 +28,8 @@ import {
 function SettingsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { data: session } = useSession()
+  const userId = (session?.user as { id?: string })?.id
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
@@ -88,7 +91,7 @@ function SettingsPageContent() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const settings = await settingsApi.get()
+        const settings = await settingsApi.get(userId)
         setBudget(settings.budget)
         setMetaApi(settings.meta_api)
         setNotifications(settings.notifications)
@@ -103,7 +106,7 @@ function SettingsPageContent() {
       }
     }
     loadSettings()
-  }, [])
+  }, [userId])
 
   // Handle FBL callback params
   useEffect(() => {
@@ -153,7 +156,7 @@ function SettingsPageContent() {
         notifications,
         goals,
         evolution,
-      })
+      }, userId)
       setSaveMessage({ success: true, message: "Configurações salvas com sucesso!" })
       setTimeout(() => setSaveMessage(null), 3000)
     } catch (error) {

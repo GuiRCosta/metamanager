@@ -113,13 +113,17 @@ async function fetchBusinessFromAdAccount(
   return response.json()
 }
 
-async function saveSettingsToBackend(settings: {
-  access_token: string
-  business_id: string
-  ad_account_id: string
-  api_version: string
-}): Promise<void> {
-  const response = await fetch(`${BACKEND_URL}/api/settings`, {
+async function saveSettingsToBackend(
+  settings: {
+    access_token: string
+    business_id: string
+    ad_account_id: string
+    api_version: string
+  },
+  userId?: string
+): Promise<void> {
+  const params = userId ? `?user_id=${userId}` : ""
+  const response = await fetch(`${BACKEND_URL}/api/settings${params}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ meta_api: settings }),
@@ -184,12 +188,16 @@ export async function GET(request: NextRequest) {
       businessName = accountDetails.business?.name || ""
     }
 
-    await saveSettingsToBackend({
-      access_token: accessToken,
-      business_id: businessId,
-      ad_account_id: adAccountId,
-      api_version: "v24.0",
-    })
+    const userId = (session.user as { id?: string })?.id
+    await saveSettingsToBackend(
+      {
+        access_token: accessToken,
+        business_id: businessId,
+        ad_account_id: adAccountId,
+        api_version: "v24.0",
+      },
+      userId
+    )
 
     return settingsRedirect(baseUrl, {
       meta_connected: "true",

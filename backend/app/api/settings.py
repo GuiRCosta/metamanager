@@ -4,7 +4,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.models.settings import (
@@ -17,7 +17,15 @@ from app.config import get_settings as get_env_settings
 
 router = APIRouter()
 
-SETTINGS_FILE = Path(__file__).parent.parent.parent / "data" / "settings.json"
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
+SETTINGS_FILE = DATA_DIR / "settings.json"
+
+
+def get_settings_file(user_id: str | None = None) -> Path:
+    """Retorna o path do arquivo de settings para o usuário."""
+    if user_id:
+        return DATA_DIR / f"settings_{user_id}.json"
+    return SETTINGS_FILE
 
 
 @dataclass
@@ -45,22 +53,28 @@ def ensure_data_dir():
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
-def load_settings() -> Settings:
+def load_settings(user_id: str | None = None) -> Settings:
     """Carrega as configurações do arquivo JSON."""
     ensure_data_dir()
-    if SETTINGS_FILE.exists():
+    settings_file = get_settings_file(user_id)
+    if settings_file.exists():
+        with open(settings_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return Settings(**data)
+    # Fallback: tenta arquivo global se user-specific não existe
+    if user_id and SETTINGS_FILE.exists():
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             return Settings(**data)
     return Settings()
 
 
-def get_meta_config() -> MetaConfig:
+def get_meta_config(user_id: str | None = None) -> MetaConfig:
     """
     Retorna configuração da Meta API.
     Prioridade: JSON settings > Environment variables
     """
-    json_settings = load_settings()
+    json_settings = load_settings(user_id)
     env_settings = get_env_settings()
 
     # JSON tem prioridade, env var é fallback
@@ -81,12 +95,12 @@ def get_meta_config() -> MetaConfig:
     )
 
 
-def get_evolution_config() -> EvolutionConfig:
+def get_evolution_config(user_id: str | None = None) -> EvolutionConfig:
     """
     Retorna configuração da Evolution API.
     Prioridade: JSON settings > Environment variables
     """
-    json_settings = load_settings()
+    json_settings = load_settings(user_id)
     env_settings = get_env_settings()
 
     return EvolutionConfig(
@@ -99,23 +113,24 @@ def get_evolution_config() -> EvolutionConfig:
     )
 
 
-def save_settings(settings: Settings) -> None:
+def save_settings(settings: Settings, user_id: str | None = None) -> None:
     """Salva as configurações no arquivo JSON."""
     ensure_data_dir()
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+    settings_file = get_settings_file(user_id)
+    with open(settings_file, "w", encoding="utf-8") as f:
         json.dump(settings.model_dump(), f, indent=2, ensure_ascii=False)
 
 
 @router.get("", response_model=Settings)
-async def get_settings():
+async def get_settings(user_id: str | None = Query(None)):
     """Obtém todas as configurações."""
-    return load_settings()
+    return load_settings(user_id)
 
 
 @router.put("", response_model=Settings)
-async def update_settings(updates: SettingsUpdate):
+async def update_settings(updates: SettingsUpdate, user_id: str | None = Query(None)):
     """Atualiza as configurações."""
-    current = load_settings()
+    current = load_settings(user_id)
 
     if updates.budget is not None:
         current.budget = updates.budget
@@ -128,7 +143,7 @@ async def update_settings(updates: SettingsUpdate):
     if updates.evolution is not None:
         current.evolution = updates.evolution
 
-    save_settings(current)
+    save_settings(current, user_id)
     return current
 
 
@@ -138,14 +153,14 @@ class SetDefaultAccountRequest(BaseModel):
 
 
 @router.patch("/default-account")
-async def set_default_account(request: SetDefaultAccountRequest):
+async def set_default_account(request: SetDefaultAccountRequest, user_id: str | None = Query(None)):
     """
     Define a conta de anúncios padrão.
     Chamado automaticamente quando o usuário seleciona uma conta no dropdown.
     """
-    current = load_settings()
+    current = load_settings(user_id)
     current.meta_api.ad_account_id = request.ad_account_id
-    save_settings(current)
+    save_settings(current, user_id)
     return {"success": True, "ad_account_id": request.ad_account_id}
 
 

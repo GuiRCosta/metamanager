@@ -577,13 +577,18 @@ export interface TestConnectionResponse {
 }
 
 export const settingsApi = {
-  get: () => fetchApi<Settings>("/api/settings"),
+  get: (userId?: string) => {
+    const params = userId ? `?user_id=${userId}` : ""
+    return fetchApi<Settings>(`/api/settings${params}`)
+  },
 
-  update: (settings: SettingsUpdate) =>
-    fetchApi<Settings>("/api/settings", {
+  update: (settings: SettingsUpdate, userId?: string) => {
+    const params = userId ? `?user_id=${userId}` : ""
+    return fetchApi<Settings>(`/api/settings${params}`, {
       method: "PUT",
       body: JSON.stringify(settings),
-    }),
+    })
+  },
 
   testConnection: (credentials: MetaApiSettings) =>
     fetchApi<TestConnectionResponse>("/api/settings/test-connection", {
@@ -591,11 +596,13 @@ export const settingsApi = {
       body: JSON.stringify(credentials),
     }),
 
-  setDefaultAccount: (adAccountId: string) =>
-    fetchApi<{ success: boolean; ad_account_id: string }>("/api/settings/default-account", {
+  setDefaultAccount: (adAccountId: string, userId?: string) => {
+    const params = userId ? `?user_id=${userId}` : ""
+    return fetchApi<{ success: boolean; ad_account_id: string }>(`/api/settings/default-account${params}`, {
       method: "PATCH",
       body: JSON.stringify({ ad_account_id: adAccountId }),
-    }),
+    })
+  },
 }
 
 // Alerts API
