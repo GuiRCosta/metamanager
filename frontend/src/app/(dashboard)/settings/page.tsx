@@ -403,136 +403,106 @@ function SettingsPageContent() {
                 </div>
               )}
 
-              <div className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <p className="font-medium flex items-center gap-2">
-                      <Link2 className="h-4 w-4" />
-                      Conexao Rapida
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Conecte sua conta do Facebook para configurar automaticamente
-                      o token de acesso, Business Manager e conta de anuncios.
-                    </p>
+              {metaApi.access_token ? (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4 space-y-4 dark:border-green-800 dark:bg-green-950">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+                      <CheckCircle className="h-5 w-5" />
+                      <p className="font-medium">Facebook Conectado</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        window.location.href = "/api/meta/connect"
+                      }}
+                    >
+                      Reconectar
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      window.location.href = "/api/meta/connect"
-                    }}
-                    className="shrink-0"
-                  >
-                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                    </svg>
-                    Conectar com Facebook
-                  </Button>
-                </div>
 
-                {metaApi.access_token && (
-                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                    <CheckCircle className="h-4 w-4" />
-                    Token de acesso configurado
-                    {metaApi.business_id && ` | Business ID: ${metaApi.business_id}`}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              <p className="text-sm text-muted-foreground">
-                Ou configure manualmente os campos abaixo:
-              </p>
-
-              <div className="space-y-2">
-                <Label htmlFor="accessToken">Access Token</Label>
-                <Input
-                  id="accessToken"
-                  type="password"
-                  placeholder="EAAxxxxxxx..."
-                  value={metaApi.access_token || ""}
-                  onChange={(e) =>
-                    setMetaApi((prev) => ({ ...prev, access_token: e.target.value }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Obtenha em{" "}
-                  <a
-                    href="https://developers.facebook.com/tools/explorer/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-foreground"
-                  >
-                    Graph API Explorer
-                  </a>
-                  {" "}com permissões: ads_read, ads_management, business_management
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="businessId">Business ID</Label>
-                <Input
-                  id="businessId"
-                  placeholder="123456789"
-                  value={metaApi.business_id || ""}
-                  onChange={(e) =>
-                    setMetaApi((prev) => ({ ...prev, business_id: e.target.value }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Encontre em business.facebook.com/settings → URL contém business_id=XXX
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="adAccountId">Ad Account ID (padrão)</Label>
-                <Input
-                  id="adAccountId"
-                  placeholder="act_123456789 ou 123456789"
-                  value={metaApi.ad_account_id || ""}
-                  onChange={(e) =>
-                    setMetaApi((prev) => ({ ...prev, ad_account_id: e.target.value }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  ID da conta de anúncios padrão. Encontre em Gerenciador de Anúncios → ID na URL.
-                  O seletor no topo ainda permite alternar entre contas.
-                </p>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  onClick={handleTestConnection}
-                  disabled={isTesting || !metaApi.access_token}
-                >
-                  {isTesting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Testando...
-                    </>
-                  ) : (
-                    "Testar Conexão"
-                  )}
-                </Button>
-
-                {testResult && (
-                  <div
-                    className={`flex items-center gap-2 text-sm ${
-                      testResult.success ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {testResult.success ? (
-                      <CheckCircle className="h-4 w-4" />
-                    ) : (
-                      <XCircle className="h-4 w-4" />
+                  <div className="grid gap-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Access Token</span>
+                      <span className="font-mono text-xs">
+                        {metaApi.access_token.slice(0, 12)}...{metaApi.access_token.slice(-6)}
+                      </span>
+                    </div>
+                    {metaApi.business_id && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Business ID</span>
+                        <span className="font-mono text-xs">{metaApi.business_id}</span>
+                      </div>
                     )}
-                    {testResult.message}
+                    {metaApi.ad_account_id && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Ad Account ID</span>
+                        <span className="font-mono text-xs">{metaApi.ad_account_id}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+
+                  <div className="flex items-center gap-4 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestConnection}
+                      disabled={isTesting}
+                    >
+                      {isTesting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Testando...
+                        </>
+                      ) : (
+                        "Testar Conexao"
+                      )}
+                    </Button>
+
+                    {testResult && (
+                      <div
+                        className={`flex items-center gap-2 text-sm ${
+                          testResult.success ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {testResult.success ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          <XCircle className="h-4 w-4" />
+                        )}
+                        {testResult.message}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="font-medium flex items-center gap-2">
+                        <Link2 className="h-4 w-4" />
+                        Conectar Meta API
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Conecte sua conta do Facebook para configurar automaticamente
+                        o token de acesso, Business Manager e conta de anuncios.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        window.location.href = "/api/meta/connect"
+                      }}
+                      className="shrink-0"
+                    >
+                      <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                      Conectar com Facebook
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
