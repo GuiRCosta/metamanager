@@ -44,9 +44,9 @@ def normalize_objective(objective: str) -> str:
     return LEGACY_OBJECTIVE_MAPPING.get(objective, "OUTCOME_TRAFFIC")
 
 
-def get_meta_api(ad_account_id: Optional[str] = None) -> MetaAPI:
+def get_meta_api(ad_account_id: Optional[str] = None, user_id: Optional[str] = None) -> MetaAPI:
     """Retorna uma instância do MetaAPI com a conta especificada."""
-    return MetaAPI(ad_account_id=ad_account_id)
+    return MetaAPI(ad_account_id=ad_account_id, user_id=user_id)
 
 
 @router.get("", response_model=CampaignListResponse)
@@ -55,10 +55,11 @@ async def list_campaigns(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Lista todas as campanhas do usuário."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
         campaigns = await meta_api.get_campaigns()
 
         if status:
@@ -93,10 +94,10 @@ async def list_campaigns(
 
 
 @router.get("/{campaign_id}", response_model=CampaignResponse)
-async def get_campaign(campaign_id: str):
+async def get_campaign(campaign_id: str, user_id: Optional[str] = Query(None)):
     """Obtém detalhes de uma campanha específica."""
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
         campaign = await meta_api.get_campaign(campaign_id)
         if not campaign:
             raise HTTPException(status_code=404, detail="Campanha não encontrada")
@@ -122,10 +123,11 @@ async def get_campaign(campaign_id: str):
 async def create_campaign(
     campaign: CampaignCreate,
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Cria uma nova campanha."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
         result = await meta_api.create_campaign(
             name=campaign.name,
             objective=campaign.objective.value,
@@ -150,10 +152,10 @@ async def create_campaign(
 
 
 @router.put("/{campaign_id}", response_model=CampaignResponse)
-async def update_campaign(campaign_id: str, campaign: CampaignUpdate):
+async def update_campaign(campaign_id: str, campaign: CampaignUpdate, user_id: Optional[str] = Query(None)):
     """Atualiza uma campanha existente."""
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
         update_data = campaign.model_dump(exclude_none=True)
         if not update_data:
             raise HTTPException(status_code=400, detail="Nenhum dado para atualizar")
@@ -179,10 +181,10 @@ async def update_campaign(campaign_id: str, campaign: CampaignUpdate):
 
 
 @router.delete("/{campaign_id}")
-async def delete_campaign(campaign_id: str):
+async def delete_campaign(campaign_id: str, user_id: Optional[str] = Query(None)):
     """Arquiva uma campanha (soft delete)."""
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
         await meta_api.delete_campaign(campaign_id)
         return {"message": "Campanha arquivada com sucesso"}
     except Exception as e:
@@ -200,10 +202,11 @@ async def duplicate_campaign(
     count: int = Query(1, ge=1, le=10, description="Número de cópias a criar"),
     include_ads: bool = Query(True, description="Incluir ad sets e ads na duplicação"),
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Duplica uma campanha existente, incluindo ad sets e ads."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
         original = await meta_api.get_campaign(campaign_id)
         if not original:
             raise HTTPException(status_code=404, detail="Campanha não encontrada")
@@ -324,10 +327,11 @@ async def duplicate_campaign(
 async def get_campaign_insights(
     campaign_id: str,
     date_preset: str = Query("last_7d", pattern="^(today|yesterday|last_7d|last_30d)$"),
+    user_id: Optional[str] = Query(None),
 ):
     """Obtém métricas de uma campanha."""
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
         insights = await meta_api.get_campaign_insights(campaign_id, date_preset)
         if not insights:
             # Return empty metrics instead of 404
@@ -353,10 +357,10 @@ async def get_campaign_insights(
 
 
 @router.get("/{campaign_id}/ad-sets", response_model=AdSetListResponse)
-async def get_campaign_ad_sets(campaign_id: str):
+async def get_campaign_ad_sets(campaign_id: str, user_id: Optional[str] = Query(None)):
     """Lista todos os conjuntos de anúncios de uma campanha."""
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
         ad_sets = await meta_api.get_ad_sets(campaign_id)
         return AdSetListResponse(
             ad_sets=[
@@ -387,10 +391,11 @@ async def get_ad_set_ads(
     ad_set_id: str,
     include_insights: bool = Query(True, description="Incluir métricas de performance"),
     date_preset: str = Query("last_7d", description="Período das métricas"),
+    user_id: Optional[str] = Query(None),
 ):
     """Lista todos os anúncios de um conjunto de anúncios com métricas."""
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
 
         if include_insights:
             ads = await meta_api.get_ads_with_insights(ad_set_id, date_preset)
@@ -449,10 +454,11 @@ async def create_ad_set(
     campaign_id: str,
     ad_set: AdSetCreate,
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Cria um novo conjunto de anúncios para uma campanha."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
 
         # Converter orçamento para centavos
         daily_budget_cents = int(ad_set.daily_budget * 100)
@@ -484,10 +490,11 @@ async def create_ad(
     ad_set_id: str,
     ad: AdCreate,
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Cria um novo anúncio em um conjunto de anúncios."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
 
         result = await meta_api.create_ad(
             ad_set_id=ad_set_id,
@@ -513,10 +520,11 @@ async def update_ad_set(
     ad_set_id: str,
     ad_set: AdSetUpdate,
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Atualiza um conjunto de anúncios."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
 
         update_data = {}
         if ad_set.name is not None:
@@ -551,10 +559,11 @@ async def update_ad(
     ad_id: str,
     ad: AdUpdate,
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Atualiza um anúncio."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
 
         update_data = {}
         if ad.name is not None:
@@ -580,10 +589,11 @@ async def update_ad(
 async def list_creatives(
     limit: int = Query(50, ge=1, le=100),
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Lista todos os criativos disponíveis na conta de anúncios."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
         creatives = await meta_api.get_creatives(limit)
 
         return {
@@ -610,10 +620,11 @@ async def list_creatives(
 async def get_creative(
     creative_id: str,
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Obtém detalhes de um criativo específico."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
         creative = await meta_api.get_creative(creative_id)
 
         if not creative:

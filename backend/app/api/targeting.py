@@ -8,9 +8,9 @@ from app.tools.meta_api import MetaAPI
 router = APIRouter()
 
 
-def get_meta_api(ad_account_id: Optional[str] = None) -> MetaAPI:
+def get_meta_api(ad_account_id: Optional[str] = None, user_id: Optional[str] = None) -> MetaAPI:
     """Retorna uma instância do MetaAPI."""
-    return MetaAPI(ad_account_id=ad_account_id)
+    return MetaAPI(ad_account_id=ad_account_id, user_id=user_id)
 
 
 # ========================================
@@ -71,6 +71,7 @@ class CategoriesResponse(BaseModel):
 async def search_interests(
     q: str = Query(..., min_length=2, description="Termo de busca (mín. 2 caracteres)"),
     limit: int = Query(20, ge=1, le=50, description="Número máximo de resultados"),
+    user_id: Optional[str] = Query(None),
 ):
     """
     Busca interesses disponíveis para targeting.
@@ -78,7 +79,7 @@ async def search_interests(
     Retorna uma lista de interesses com estimativa de tamanho do público.
     """
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
         interests = await meta_api.search_interests(q, limit)
         return InterestsResponse(
             success=True,
@@ -96,6 +97,7 @@ async def search_locations(
         description="Tipos separados por vírgula: city, region, country, zip, geo_market",
     ),
     limit: int = Query(20, ge=1, le=50, description="Número máximo de resultados"),
+    user_id: Optional[str] = Query(None),
 ):
     """
     Busca localizações para targeting.
@@ -108,7 +110,7 @@ async def search_locations(
     - geo_market: Mercados geográficos (DMAs)
     """
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
         location_types = types.split(",") if types else None
         locations = await meta_api.search_locations(q, location_types, limit)
         return LocationsResponse(
@@ -125,6 +127,7 @@ async def get_categories(
         "interests",
         description="Classe: interests, behaviors, demographics, life_events, family_statuses",
     ),
+    user_id: Optional[str] = Query(None),
 ):
     """
     Lista categorias de targeting disponíveis.
@@ -139,7 +142,7 @@ async def get_categories(
     - income: Faixa de renda
     """
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
         categories = await meta_api.get_targeting_categories(category_class)
         return CategoriesResponse(success=True, categories=categories)
     except Exception as e:
