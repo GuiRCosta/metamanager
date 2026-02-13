@@ -29,19 +29,20 @@ class MetaAPI:
         access_token: Optional[str] = None,
         business_id: Optional[str] = None,
         api_version: Optional[str] = None,
+        user_id: Optional[str] = None,
     ):
         """
         Inicializa o cliente Meta API.
 
         Prioridade de configuração:
         1. Parâmetros passados no construtor
-        2. Configurações JSON (data/settings.json)
+        2. Configurações JSON (data/settings.json ou settings_{user_id}.json)
         3. Variáveis de ambiente (.env)
         """
         # Import local para evitar circular import
         from app.api.settings import get_meta_config
 
-        config = get_meta_config()
+        config = get_meta_config(user_id)
 
         self.access_token = access_token or config.access_token
         self.ad_account_id = ad_account_id or config.ad_account_id

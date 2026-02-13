@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useSession } from "next-auth/react"
-import { accountsApi, settingsApi, type AdAccount } from "@/lib/api"
+import { accountsApi, settingsApi, setApiUserId, type AdAccount } from "@/lib/api"
 
 interface AdAccountContextType {
   accounts: AdAccount[]
@@ -70,8 +70,14 @@ export function AdAccountProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    fetchAccounts()
-  }, [])
+    setApiUserId(userId)
+  }, [userId])
+
+  useEffect(() => {
+    if (userId) {
+      fetchAccounts()
+    }
+  }, [userId])
 
   return (
     <AdAccountContext.Provider

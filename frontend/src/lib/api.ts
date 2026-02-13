@@ -1,10 +1,20 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
 
+let _apiUserId: string | undefined
+
+export function setApiUserId(userId: string | undefined) {
+  _apiUserId = userId
+}
+
 async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`
+  let url = `${API_BASE_URL}${endpoint}`
+  if (_apiUserId) {
+    const separator = url.includes("?") ? "&" : "?"
+    url = `${url}${separator}user_id=${_apiUserId}`
+  }
 
   const response = await fetch(url, {
     ...options,

@@ -9,9 +9,9 @@ from app.services.alert_generator import run_alert_generation
 router = APIRouter()
 
 
-def get_meta_api(ad_account_id: Optional[str] = None) -> MetaAPI:
-    """Retorna uma instância do MetaAPI com a conta especificada."""
-    return MetaAPI(ad_account_id=ad_account_id)
+def get_meta_api(ad_account_id: Optional[str] = None, user_id: Optional[str] = None) -> MetaAPI:
+    """Retorna uma instância do MetaAPI com a conta e usuário especificados."""
+    return MetaAPI(ad_account_id=ad_account_id, user_id=user_id)
 
 
 class SyncResponse(BaseModel):
@@ -38,10 +38,10 @@ class AdAccountsResponse(BaseModel):
 
 
 @router.get("/accounts", response_model=AdAccountsResponse)
-async def get_ad_accounts():
+async def get_ad_accounts(user_id: Optional[str] = Query(None)):
     """Lista todas as contas de anúncio disponíveis."""
     try:
-        meta_api = get_meta_api()
+        meta_api = get_meta_api(user_id=user_id)
         accounts = await meta_api.get_ad_accounts()
         return AdAccountsResponse(
             success=True,
@@ -52,10 +52,10 @@ async def get_ad_accounts():
 
 
 @router.post("", response_model=SyncResponse)
-async def sync_all(ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios")):
+async def sync_all(ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"), user_id: Optional[str] = Query(None)):
     """Sincroniza campanhas e métricas do Meta."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
         campaigns = await meta_api.get_campaigns()
         campaigns_count = len(campaigns)
 
@@ -97,10 +97,11 @@ async def sync_all(ad_account_id: Optional[str] = Query(None, description="ID da
 async def sync_campaigns(
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
     include_archived: bool = Query(False, description="Incluir campanhas arquivadas"),
+    user_id: Optional[str] = Query(None),
 ):
     """Sincroniza apenas as campanhas."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
         campaigns = await meta_api.get_campaigns(include_archived=include_archived)
         return {
             "success": True,
@@ -115,10 +116,11 @@ async def sync_campaigns(
 async def sync_metrics(
     campaign_id: Optional[str] = None,
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Sincroniza métricas (todas ou de uma campanha específica)."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
 
         if campaign_id:
             insights = await meta_api.get_campaign_insights(campaign_id, "last_30d")
@@ -193,10 +195,11 @@ async def get_campaigns_insights(
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
     date_preset: str = Query("last_7d", description="Período das métricas"),
     include_archived: bool = Query(False, description="Incluir campanhas arquivadas"),
+    user_id: Optional[str] = Query(None),
 ):
     """Obtém métricas de todas as campanhas para comparação."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
         campaigns = await meta_api.get_all_campaigns_insights(date_preset, include_archived)
 
         result = []
@@ -244,10 +247,11 @@ class TrendsResponse(BaseModel):
 async def get_trends(
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
     date_preset: str = Query("last_7d", description="Período das métricas"),
+    user_id: Optional[str] = Query(None),
 ):
     """Obtém métricas por dia para gráfico de tendências."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
         daily_data = await meta_api.get_account_insights_by_day(date_preset)
 
         return TrendsResponse(
@@ -263,10 +267,11 @@ async def get_dashboard_metrics(
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
     date_preset: str = Query("last_7d", description="Período das métricas"),
     include_archived: bool = Query(False, description="Incluir campanhas arquivadas"),
+    user_id: Optional[str] = Query(None),
 ):
     """Obtém métricas para o dashboard."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
 
         # Get campaigns
         campaigns = await meta_api.get_campaigns(include_archived=include_archived)
@@ -330,10 +335,11 @@ async def get_adsets_insights(
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
     date_preset: str = Query("last_7d", description="Período das métricas"),
     include_archived: bool = Query(False, description="Incluir campanhas arquivadas"),
+    user_id: Optional[str] = Query(None),
 ):
     """Obtém métricas de todos os conjuntos de anúncios para análise."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
         adsets = await meta_api.get_all_adsets_insights(date_preset, include_archived)
 
         result = []
@@ -392,10 +398,11 @@ async def get_ads_insights(
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
     date_preset: str = Query("last_7d", description="Período das métricas"),
     include_archived: bool = Query(False, description="Incluir campanhas arquivadas"),
+    user_id: Optional[str] = Query(None),
 ):
     """Obtém métricas de todos os anúncios para análise."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
         ads = await meta_api.get_all_ads_insights(date_preset, include_archived)
 
         result = []
@@ -446,10 +453,11 @@ class AccountLimitsResponse(BaseModel):
 @router.get("/account-limits", response_model=AccountLimitsResponse)
 async def get_account_limits(
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """Obtém os limites de campanhas, conjuntos e anúncios da conta."""
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
         limits_data = await meta_api.get_account_limits()
 
         limits = []
@@ -510,6 +518,7 @@ class ReachEstimateResponse(BaseModel):
 async def estimate_reach(
     request: ReachEstimateRequest,
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """
     Estima o tamanho do público para um targeting específico.
@@ -524,7 +533,7 @@ async def estimate_reach(
     }
     """
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
         estimate = await meta_api.get_reach_estimate(
             request.targeting_spec,
             request.optimization_goal,
@@ -570,6 +579,7 @@ async def get_breakdown(
     ),
     date_preset: str = Query("last_7d", description="Período: today, yesterday, last_7d, last_30d"),
     ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"),
+    user_id: Optional[str] = Query(None),
 ):
     """
     Obtém métricas com breakdown por dimensão.
@@ -582,7 +592,7 @@ async def get_breakdown(
     - device_platform: Dispositivo (mobile, desktop)
     """
     try:
-        meta_api = get_meta_api(ad_account_id)
+        meta_api = get_meta_api(ad_account_id, user_id)
         data = await meta_api.get_insights_with_breakdown(object_id, date_preset, [breakdown])
 
         items = []
