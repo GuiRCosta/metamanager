@@ -48,7 +48,7 @@ const docCategories: DocCategory[] = [
         title: "Visão Geral da Plataforma",
         keywords: ["visão geral", "plataforma", "sobre", "o que é"],
         content:
-          "O Meta Campaign Manager é uma plataforma completa para gerenciamento de campanhas de anúncios no Meta (Facebook e Instagram). Com ele, você pode criar, monitorar e otimizar suas campanhas publicitárias em um só lugar, com dashboards intuitivos, alertas inteligentes e um agente de IA para auxiliar na análise dos dados.",
+          "O iDEVA Campaign Manager é uma plataforma completa para gerenciamento de campanhas de anúncios no Meta (Facebook e Instagram). Com ele, você pode criar, monitorar e otimizar suas campanhas publicitárias em um só lugar, com dashboards intuitivos, alertas inteligentes e um agente de IA para auxiliar na análise dos dados.",
       },
       {
         id: "first-steps",
@@ -401,7 +401,7 @@ export default function DocsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Documentação</h1>
         <p className="text-muted-foreground">
-          Guia completo para usar o Meta Campaign Manager
+          Guia completo para usar o iDEVA Campaign Manager
         </p>
       </div>
 

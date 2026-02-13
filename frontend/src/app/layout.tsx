@@ -15,7 +15,7 @@ const manrope = Manrope({
 })
 
 export const metadata: Metadata = {
-  title: "Meta Campaign Manager",
+  title: "iDEVA Campaign Manager",
   description: "Gerencie suas campanhas do Meta Ads com inteligência artificial",
 }
 

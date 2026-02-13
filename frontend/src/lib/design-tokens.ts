@@ -1,5 +1,5 @@
 /**
- * Design Tokens - Meta Campaign Manager
+ * Design Tokens - iDEVA Campaign Manager
  *
  * Sistema centralizado de tokens de design para consistência visual.
  * Estes tokens são a fonte de verdade para cores, tipografia, espaçamento, etc.
