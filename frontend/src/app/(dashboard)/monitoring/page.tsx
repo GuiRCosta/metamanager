@@ -15,6 +15,12 @@ import {
   Server,
   Copy,
   Check,
+  Shield,
+  Wifi,
+  WifiOff,
+  Trash2,
+  Loader2,
+  MessageSquare,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,7 +32,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { logsApi, type ActivityLog, type LogStats } from "@/lib/api"
+import {
+  logsApi,
+  adminApi,
+  type ActivityLog,
+  type LogStats,
+  type UserHealth,
+  type AdminUser,
+} from "@/lib/api"
 
 const USER_MAP: Record<string, string> = {
   "8b11cf7d-bcf8-4735-8971-3e8d45b22a97": "gestao@ideva.ai",
@@ -95,11 +108,15 @@ export default function MonitoringPage() {
   const [loading, setLoading] = useState(true)
   const [expandedLog, setExpandedLog] = useState<number | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [usersHealth, setUsersHealth] = useState<UserHealth[]>([])
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null)
 
   function formatLogAsText(log: ActivityLog): string {
     return [
       `[${log.timestamp}] ${log.status_code || "-"} ${log.method} ${log.path}`,
-      `  Usuario: ${formatUserId(log.user_id)}`,
+      `  Usuario: ${resolveEmail(log.user_id)}`,
       `  Tempo: ${log.response_time_ms?.toFixed(0) || "-"}ms`,
       `  IP: ${log.ip_address || "-"}`,
       log.query_params ? `  Params: ${log.query_params}` : null,
@@ -129,7 +146,7 @@ export default function MonitoringPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, logsRes] = await Promise.all([
+      const [statsRes, logsRes, healthRes, usersRes] = await Promise.all([
         logsApi.getStats(statsHours),
         logsApi.getLogs({
           method: filterMethod !== "all" ? filterMethod : undefined,
@@ -139,10 +156,14 @@ export default function MonitoringPage() {
           page,
           limit: 50,
         }),
+        adminApi.getUsersHealth(statsHours).catch(() => ({ users: [] })),
+        adminApi.getUsers().catch(() => ({ users: [] })),
       ])
       setStats(statsRes)
       setLogs(logsRes.logs)
       setTotalLogs(logsRes.total)
+      setUsersHealth(healthRes.users)
+      setAdminUsers(usersRes.users)
     } catch {
       // Silently handle errors on monitoring page
     } finally {
@@ -166,6 +187,47 @@ export default function MonitoringPage() {
 
   if (userRole !== "superadmin") {
     return null
+  }
+
+  // Build dynamic user map from Prisma users
+  const dynamicUserMap: Record<string, string> = {}
+  for (const u of adminUsers) {
+    dynamicUserMap[u.id] = u.email
+  }
+  // Merge with static map (dynamic takes priority)
+  const mergedUserMap = { ...USER_MAP, ...dynamicUserMap }
+
+  function resolveEmail(userId: string | null): string {
+    if (!userId) return "anonymous"
+    return mergedUserMap[userId] || userId.slice(0, 8)
+  }
+
+  // Merge health + Prisma user data
+  const enrichedUsers = usersHealth.map((health) => {
+    const prismaUser = adminUsers.find((u) => u.id === health.user_id)
+    return {
+      ...health,
+      email: prismaUser?.email || mergedUserMap[health.user_id] || health.user_id.slice(0, 8),
+      name: prismaUser?.name || null,
+      role: prismaUser?.role || "user",
+      createdAt: prismaUser?.createdAt || null,
+    }
+  })
+
+  async function handleCleanupLogs(days: number) {
+    setCleanupLoading(true)
+    setCleanupResult(null)
+    try {
+      const result = await adminApi.cleanupLogs(days)
+      setCleanupResult(
+        `${result.deleted_count} logs removidos. ${result.remaining_count} restantes.`
+      )
+      fetchData()
+    } catch {
+      setCleanupResult("Erro ao limpar logs.")
+    } finally {
+      setCleanupLoading(false)
+    }
   }
 
   const totalPages = Math.ceil(totalLogs / 50)
@@ -258,7 +320,7 @@ export default function MonitoringPage() {
               <div className="mt-1 space-y-0.5">
                 {stats.active_users.map((u) => (
                   <p key={u.user_id} className="text-xs text-muted-foreground truncate">
-                    {formatUserId(u.user_id)} ({u.request_count} req)
+                    {resolveEmail(u.user_id)} ({u.request_count} req)
                   </p>
                 ))}
               </div>
@@ -359,7 +421,7 @@ export default function MonitoringPage() {
                   <MethodBadge method={err.method} />
                   <span className="font-mono text-xs truncate">{err.path}</span>
                   <span className="text-xs text-muted-foreground truncate">
-                    {formatUserId(err.user_id)}
+                    {resolveEmail(err.user_id)}
                   </span>
                   {err.error_detail && (
                     <span className="text-xs text-red-400 truncate" title={err.error_detail}>
@@ -372,6 +434,157 @@ export default function MonitoringPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Users Health Panel */}
+      {enrichedUsers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Saude dos Usuarios
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="px-3 py-2 text-left font-medium">Usuario</th>
+                      <th className="px-3 py-2 text-center font-medium">Meta API</th>
+                      <th className="px-3 py-2 text-center font-medium">WhatsApp</th>
+                      <th className="px-3 py-2 text-right font-medium">Requests</th>
+                      <th className="px-3 py-2 text-right font-medium">Erros</th>
+                      <th className="px-3 py-2 text-left font-medium">Ultima Atividade</th>
+                      <th className="px-3 py-2 text-left font-medium">Ultimo Erro</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {enrichedUsers.map((user) => {
+                      const errorRate = user.total_requests > 0
+                        ? (user.error_count / user.total_requests) * 100
+                        : 0
+                      const healthColor = errorRate > 10
+                        ? "bg-red-500/10"
+                        : errorRate > 5
+                          ? "bg-yellow-500/10"
+                          : ""
+                      return (
+                        <tr key={user.user_id} className={`border-b ${healthColor}`}>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{user.email}</span>
+                              {user.name && (
+                                <span className="text-xs text-muted-foreground">{user.name}</span>
+                              )}
+                              {user.role === "superadmin" && (
+                                <span className="text-xs text-purple-400">superadmin</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {user.has_meta_token && user.has_ad_account ? (
+                              <span className="inline-flex items-center gap-1 text-green-400 text-xs">
+                                <Wifi className="h-3 w-3" /> Conectado
+                              </span>
+                            ) : user.has_meta_token ? (
+                              <span className="inline-flex items-center gap-1 text-yellow-400 text-xs">
+                                <Wifi className="h-3 w-3" /> Parcial
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-red-400 text-xs">
+                                <WifiOff className="h-3 w-3" /> Desconectado
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {user.has_evolution ? (
+                              <span className="inline-flex items-center gap-1 text-green-400 text-xs">
+                                <MessageSquare className="h-3 w-3" /> Ativo
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs">
+                            {user.total_requests.toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {user.error_count > 0 ? (
+                              <span className="text-red-400 font-mono text-xs">
+                                {user.error_count} ({errorRate.toFixed(1)}%)
+                              </span>
+                            ) : (
+                              <span className="text-green-400 text-xs">0</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                            {user.last_activity ? formatTime(user.last_activity) : "-"}
+                          </td>
+                          <td className="px-3 py-2">
+                            {user.last_error_detail ? (
+                              <span
+                                className="text-xs text-red-400 truncate block max-w-[200px]"
+                                title={user.last_error_detail}
+                              >
+                                {user.last_error_detail.slice(0, 60)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Log Cleanup */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Trash2 className="h-4 w-4" />
+            Limpeza de Logs
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleCleanupLogs(30)}
+              disabled={cleanupLoading}
+            >
+              {cleanupLoading && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Limpar +30 dias
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleCleanupLogs(7)}
+              disabled={cleanupLoading}
+            >
+              Limpar +7 dias
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleCleanupLogs(1)}
+              disabled={cleanupLoading}
+            >
+              Limpar +1 dia
+            </Button>
+            {cleanupResult && (
+              <span className="text-sm text-muted-foreground">{cleanupResult}</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
@@ -403,7 +616,7 @@ export default function MonitoringPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {Object.entries(USER_MAP).map(([id, email]) => (
+                {Object.entries(mergedUserMap).map(([id, email]) => (
                   <SelectItem key={id} value={id}>
                     {email}
                   </SelectItem>
@@ -497,7 +710,7 @@ export default function MonitoringPage() {
                             {log.path}
                           </td>
                           <td className="px-3 py-2 text-xs text-muted-foreground">
-                            {formatUserId(log.user_id)}
+                            {resolveEmail(log.user_id)}
                           </td>
                           <td className="px-3 py-2 text-right text-xs text-muted-foreground">
                             {log.response_time_ms?.toFixed(0)}ms

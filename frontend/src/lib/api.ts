@@ -908,3 +908,59 @@ export const logsApi = {
   getStats: (hours: number = 24) =>
     fetchApi<LogStats>(`/api/logs/stats?hours=${hours}`),
 }
+
+// ==================== Admin API ====================
+
+export interface UserHealth {
+  user_id: string
+  has_meta_token: boolean
+  has_ad_account: boolean
+  ad_account_id: string | null
+  has_evolution: boolean
+  total_requests: number
+  error_count: number
+  last_activity: string | null
+  last_error: string | null
+  last_error_detail: string | null
+}
+
+export interface UsersHealthResponse {
+  success: boolean
+  users: UserHealth[]
+}
+
+export interface AdminUser {
+  id: string
+  email: string
+  name: string | null
+  role: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminUsersResponse {
+  success: boolean
+  users: AdminUser[]
+}
+
+export interface LogCleanupResponse {
+  success: boolean
+  deleted_count: number
+  remaining_count: number
+}
+
+export const adminApi = {
+  getUsersHealth: (hours: number = 24) =>
+    fetchApi<UsersHealthResponse>(`/api/admin/users-health?hours=${hours}`),
+
+  getUsers: () =>
+    fetch("/api/admin/users").then(res => {
+      if (!res.ok) throw new Error("Failed to fetch users")
+      return res.json() as Promise<AdminUsersResponse>
+    }),
+
+  cleanupLogs: (days: number = 30) =>
+    fetchApi<LogCleanupResponse>(`/api/admin/logs-cleanup?days=${days}`, {
+      method: "DELETE",
+    }),
+}
