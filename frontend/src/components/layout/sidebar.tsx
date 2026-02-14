@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import {
   LayoutDashboard,
   Megaphone,
@@ -11,6 +12,7 @@ import {
   Settings,
   LogOut,
   BookOpen,
+  Activity,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
@@ -28,6 +30,10 @@ const navigation = [
   { name: "Configurações", href: "/settings", icon: Settings },
 ]
 
+const adminNavigation = [
+  { name: "Monitoramento", href: "/monitoring", icon: Activity },
+]
+
 interface SidebarProps {
   budgetUsed?: number
   budgetLimit?: number
@@ -35,6 +41,8 @@ interface SidebarProps {
 
 export function Sidebar({ budgetUsed = 0, budgetLimit = 5000 }: SidebarProps) {
   const pathname = usePathname()
+  const { data: session } = useSession()
+  const userRole = (session?.user as { role?: string })?.role
   const budgetPercentage = budgetLimit > 0 ? (budgetUsed / budgetLimit) * 100 : 0
 
   const handleSignOut = () => {
@@ -68,6 +76,30 @@ export function Sidebar({ budgetUsed = 0, budgetLimit = 5000 }: SidebarProps) {
             </Link>
           )
         })}
+
+        {userRole === "superadmin" && (
+          <>
+            <div className="my-2 border-t border-white/10" />
+            {adminNavigation.map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-white/30 dark:hover:bg-white/10 hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.name}
+                </Link>
+              )
+            })}
+          </>
+        )}
       </nav>
 
       <div className="border-t border-white/10 p-4">

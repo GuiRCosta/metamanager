@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     evolution_instance: str = ""  # Nome da instância
     evolution_webhook_secret: str = ""  # Secret para validar webhooks
 
+    # Sentry (optional - leave empty to disable)
+    sentry_dsn: str = ""
+
     # Application
     frontend_url: str = "http://localhost:3000"
     host: str = "0.0.0.0"

@@ -844,3 +844,68 @@ export const whatsappApi = {
       method: "POST",
     }),
 }
+
+// ========================================
+// Activity Logs API (Superadmin)
+// ========================================
+
+export interface ActivityLog {
+  id: number
+  timestamp: string
+  user_id: string | null
+  method: string
+  path: string
+  query_params: string | null
+  status_code: number | null
+  response_time_ms: number | null
+  error_detail: string | null
+  ip_address: string | null
+  user_agent: string | null
+}
+
+export interface LogsResponse {
+  success: boolean
+  logs: ActivityLog[]
+  total: number
+  page: number
+  limit: number
+}
+
+export interface LogStats {
+  success: boolean
+  total_requests: number
+  error_count: number
+  avg_response_time_ms: number
+  active_users: Array<{ user_id: string; request_count: number; last_seen: string }>
+  top_endpoints: Array<{ path: string; method: string; count: number; avg_time_ms: number; error_count: number }>
+  status_breakdown: Array<{ status_group: string; count: number }>
+  recent_errors: Array<{ timestamp: string; user_id: string | null; method: string; path: string; status_code: number; response_time_ms: number; error_detail: string | null }>
+}
+
+export const logsApi = {
+  getLogs: (filters?: {
+    user_id?: string
+    method?: string
+    status_min?: number
+    status_max?: number
+    path_contains?: string
+    errors_only?: boolean
+    page?: number
+    limit?: number
+  }) => {
+    const params = new URLSearchParams()
+    if (filters?.user_id) params.append("user_id", filters.user_id)
+    if (filters?.method) params.append("method", filters.method)
+    if (filters?.status_min) params.append("status_min", String(filters.status_min))
+    if (filters?.status_max) params.append("status_max", String(filters.status_max))
+    if (filters?.path_contains) params.append("path_contains", filters.path_contains)
+    if (filters?.errors_only) params.append("errors_only", "true")
+    if (filters?.page) params.append("page", String(filters.page))
+    if (filters?.limit) params.append("limit", String(filters.limit))
+    const queryString = params.toString() ? `?${params.toString()}` : ""
+    return fetchApi<LogsResponse>(`/api/logs${queryString}`)
+  },
+
+  getStats: (hours: number = 24) =>
+    fetchApi<LogStats>(`/api/logs/stats?hours=${hours}`),
+}

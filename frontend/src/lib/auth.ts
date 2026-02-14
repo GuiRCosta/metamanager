@@ -37,6 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role,
         }
       },
     }),
@@ -47,6 +48,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return {
           ...token,
           id: user.id,
+          role: (user as { role?: string }).role || "user",
         }
       }
       return token
@@ -57,6 +59,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         user: {
           ...session.user,
           id: token.id as string,
+          role: (token.role as string) || "user",
         },
       }
     },

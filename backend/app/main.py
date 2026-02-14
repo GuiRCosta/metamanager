@@ -1,5 +1,7 @@
+import os
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -14,9 +16,22 @@ from app.api.settings import router as settings_router
 from app.api.alerts import router as alerts_router
 from app.api.targeting import router as targeting_router
 from app.api.whatsapp import router as whatsapp_router
+from app.api.logs import router as logs_router
+from app.middleware.activity_logger import ActivityLoggerMiddleware
 from app.services.whatsapp_scheduler import get_whatsapp_scheduler
 
 settings = get_settings()
+
+# Sentry - only initializes if DSN is configured
+sentry_dsn = os.environ.get("SENTRY_DSN", "") or settings.sentry_dsn
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        traces_sample_rate=0.3,
+        profiles_sample_rate=0.1,
+        environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+        send_default_pii=False,
+    )
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -42,7 +57,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Meta Campaign Manager API",
     description="API para gerenciamento de campanhas Meta Ads com agentes de IA",
-    version="1.1.0",
+    version="1.2.0",
     lifespan=lifespan,
 )
 
@@ -57,6 +72,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(ActivityLoggerMiddleware)
+
 app.include_router(campaigns_router, prefix="/api/campaigns", tags=["campaigns"])
 app.include_router(chat_router, prefix="/api/agent", tags=["agent"])
 app.include_router(sync_router, prefix="/api/sync", tags=["sync"])
@@ -64,11 +81,12 @@ app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 app.include_router(alerts_router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(targeting_router, prefix="/api/targeting", tags=["targeting"])
 app.include_router(whatsapp_router, prefix="/api/whatsapp", tags=["whatsapp"])
+app.include_router(logs_router, prefix="/api/logs", tags=["logs"])
 
 
 @app.get("/")
 async def root():
-    return {"message": "Meta Campaign Manager API", "version": "1.1.0"}
+    return {"message": "Meta Campaign Manager API", "version": "1.2.0"}
 
 
 @app.get("/health")
