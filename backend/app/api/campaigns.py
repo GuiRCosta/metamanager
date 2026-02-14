@@ -12,7 +12,7 @@ from app.models.campaign import (
 from app.models.insights import CampaignInsights
 from app.models.adset import AdSetResponse, AdSetListResponse, AdSetCreate, AdSetUpdate
 from app.models.ad import AdResponse, AdListResponse, AdCreative, AdInsights, AdCreate, AdUpdate
-from app.tools.meta_api import MetaAPI
+from app.tools.meta_api import MetaAPI, MetaAPIError
 
 router = APIRouter()
 
@@ -479,6 +479,11 @@ async def create_ad_set(
             "name": ad_set.name,
             "campaign_id": campaign_id,
         }
+    except MetaAPIError as e:
+        logging.warning(f"Meta API error creating ad set: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Failed to create ad set: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -509,6 +514,11 @@ async def create_ad(
             "name": ad.name,
             "ad_set_id": ad_set_id,
         }
+    except MetaAPIError as e:
+        logging.warning(f"Meta API error creating ad: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Failed to create ad: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -547,6 +557,11 @@ async def update_ad_set(
             "id": ad_set_id,
             "updated_fields": list(update_data.keys()),
         }
+    except MetaAPIError as e:
+        logging.warning(f"Meta API error updating ad set: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Failed to update ad set: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -580,6 +595,11 @@ async def update_ad(
             "id": ad_id,
             "updated_fields": list(update_data.keys()),
         }
+    except MetaAPIError as e:
+        logging.warning(f"Meta API error updating ad: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Failed to update ad: {e}")
         raise HTTPException(status_code=500, detail=str(e))

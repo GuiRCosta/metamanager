@@ -262,7 +262,7 @@ export default function MonitoringPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue="overview" onValueChange={() => fetchData()}>
         <TabsList>
           <TabsTrigger value="overview">
             <Activity className="h-4 w-4 mr-1" />
