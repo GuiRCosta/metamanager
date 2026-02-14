@@ -33,7 +33,6 @@ const userNavigation = [
 const superadminNavigation = [
   { name: "Monitoramento", href: "/monitoring", icon: Activity },
   { name: "Documentação", href: "/docs", icon: BookOpen },
-  { name: "Configurações", href: "/settings", icon: Settings },
 ]
 
 interface SidebarProps {

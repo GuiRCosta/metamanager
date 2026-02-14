@@ -27,15 +27,18 @@ export function Header({ onSync }: HeaderProps) {
   const { data: session } = useSession()
   const [isSyncing, setIsSyncing] = useState(false)
   const [unreadAlerts, setUnreadAlerts] = useState(0)
+  const userRole = (session?.user as { role?: string })?.role
+  const isSuperadmin = userRole === "superadmin"
 
   const fetchUnreadCount = useCallback(async () => {
+    if (isSuperadmin) return
     try {
       const response = await alertsApi.getUnreadCount()
       setUnreadAlerts(response.unread_count)
     } catch {
       // Silently fail - alerts count is not critical
     }
-  }, [])
+  }, [isSuperadmin])
 
   useEffect(() => {
     fetchUnreadCount()
@@ -65,35 +68,39 @@ export function Header({ onSync }: HeaderProps) {
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/20 glass-surface-nav px-6">
       <div className="flex items-center gap-4">
         <h1 className="text-lg font-semibold">iDEVA Campaign Manager</h1>
-        <AccountSelector />
+        {!isSuperadmin && <AccountSelector />}
       </div>
 
       <div className="flex items-center gap-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSync}
-          disabled={isSyncing}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`}
-          />
-          {isSyncing ? "Sincronizando..." : "Sincronizar"}
-        </Button>
+        {!isSuperadmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={isSyncing}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`}
+            />
+            {isSyncing ? "Sincronizando..." : "Sincronizar"}
+          </Button>
+        )}
 
-        <Button variant="ghost" size="icon" className="relative" asChild>
-          <Link href="/alerts">
-            <Bell className="h-5 w-5" />
-            {unreadAlerts > 0 && (
-              <Badge
-                variant="destructive"
-                className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs"
-              >
-                {unreadAlerts > 9 ? "9+" : unreadAlerts}
-              </Badge>
-            )}
-          </Link>
-        </Button>
+        {!isSuperadmin && (
+          <Button variant="ghost" size="icon" className="relative" asChild>
+            <Link href="/alerts">
+              <Bell className="h-5 w-5" />
+              {unreadAlerts > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs"
+                >
+                  {unreadAlerts > 9 ? "9+" : unreadAlerts}
+                </Badge>
+              )}
+            </Link>
+          </Button>
+        )}
 
         <ThemeToggle />
 
@@ -115,18 +122,22 @@ export function Header({ onSync }: HeaderProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <Settings className="mr-2 h-4 w-4" />
-                Configurações
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/alerts">
-                <Bell className="mr-2 h-4 w-4" />
-                Notificações
-              </Link>
-            </DropdownMenuItem>
+            {!isSuperadmin && (
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configurações
+                </Link>
+              </DropdownMenuItem>
+            )}
+            {!isSuperadmin && (
+              <DropdownMenuItem asChild>
+                <Link href="/alerts">
+                  <Bell className="mr-2 h-4 w-4" />
+                  Notificações
+                </Link>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
