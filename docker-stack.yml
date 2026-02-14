@@ -20,6 +20,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - WHISPER_MODEL=${WHISPER_MODEL:-whisper-1}
 
+      # Admin API Key (protege endpoints admin/logs)
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+
       # Meta API (opcional - pode configurar via UI em /settings)
       - META_ACCESS_TOKEN=${META_ACCESS_TOKEN:-}
       - META_BUSINESS_ID=${META_BUSINESS_ID:-}
@@ -59,6 +62,9 @@ services:
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - AUTH_TRUST_HOST=true
       - BACKEND_API_URL=http://metamanager_backend:8000
+
+      # Admin API Key (protege endpoints admin/logs)
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
 
       # Facebook Login for Business (OAuth)
       - FACEBOOK_APP_ID=${FACEBOOK_APP_ID:-}

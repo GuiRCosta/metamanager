@@ -882,6 +882,23 @@ export interface LogStats {
   recent_errors: Array<{ timestamp: string; user_id: string | null; method: string; path: string; status_code: number; response_time_ms: number; error_detail: string | null }>
 }
 
+async function fetchLocalApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(endpoint, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Unknown error" }))
+    throw new Error(error.detail || error.error || `HTTP error! status: ${response.status}`)
+  }
+
+  return response.json()
+}
+
 export const logsApi = {
   getLogs: (filters?: {
     user_id?: string
@@ -903,11 +920,11 @@ export const logsApi = {
     if (filters?.page) params.append("page", String(filters.page))
     if (filters?.limit) params.append("limit", String(filters.limit))
     const queryString = params.toString() ? `?${params.toString()}` : ""
-    return fetchApi<LogsResponse>(`/api/logs${queryString}`)
+    return fetchLocalApi<LogsResponse>(`/api/admin/logs${queryString}`)
   },
 
   getStats: (hours: number = 24) =>
-    fetchApi<LogStats>(`/api/logs/stats?hours=${hours}`),
+    fetchLocalApi<LogStats>(`/api/admin/logs-stats?hours=${hours}`),
 }
 
 // ==================== Admin API ====================
@@ -952,16 +969,13 @@ export interface LogCleanupResponse {
 
 export const adminApi = {
   getUsersHealth: (hours: number = 24) =>
-    fetchApi<UsersHealthResponse>(`/api/admin/users-health?hours=${hours}`),
+    fetchLocalApi<UsersHealthResponse>(`/api/admin/users-health?hours=${hours}`),
 
   getUsers: () =>
-    fetch("/api/admin/users").then(res => {
-      if (!res.ok) throw new Error("Failed to fetch users")
-      return res.json() as Promise<AdminUsersResponse>
-    }),
+    fetchLocalApi<AdminUsersResponse>("/api/admin/users"),
 
   cleanupLogs: (days: number = 30) =>
-    fetchApi<LogCleanupResponse>(`/api/admin/logs-cleanup?days=${days}`, {
+    fetchLocalApi<LogCleanupResponse>(`/api/admin/logs-cleanup?days=${days}`, {
       method: "DELETE",
     }),
 }

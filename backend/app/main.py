@@ -2,7 +2,7 @@ import os
 from contextlib import asynccontextmanager
 
 import sentry_sdk
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -18,6 +18,7 @@ from app.api.targeting import router as targeting_router
 from app.api.whatsapp import router as whatsapp_router
 from app.api.logs import router as logs_router
 from app.api.admin import router as admin_router
+from app.dependencies.admin_auth import require_admin_key
 from app.middleware.activity_logger import ActivityLoggerMiddleware
 from app.services.whatsapp_scheduler import get_whatsapp_scheduler
 
@@ -82,8 +83,8 @@ app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 app.include_router(alerts_router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(targeting_router, prefix="/api/targeting", tags=["targeting"])
 app.include_router(whatsapp_router, prefix="/api/whatsapp", tags=["whatsapp"])
-app.include_router(logs_router, prefix="/api/logs", tags=["logs"])
-app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
+app.include_router(logs_router, prefix="/api/logs", tags=["logs"], dependencies=[Depends(require_admin_key)])
+app.include_router(admin_router, prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin_key)])
 
 
 @app.get("/")

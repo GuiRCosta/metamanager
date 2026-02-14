@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Sentry (optional - leave empty to disable)
     sentry_dsn: str = ""
 
+    # Admin API Key (shared secret between frontend and backend)
+    admin_api_key: str = ""
+
     # Application
     frontend_url: str = "http://localhost:3000"
     host: str = "0.0.0.0"
