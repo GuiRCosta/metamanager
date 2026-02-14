@@ -124,32 +124,28 @@ export function AdTable({ ads, compact = false }: AdTableProps) {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right font-medium">
-                  {insights ? formatCurrency(insights.spend) : "-"}
+                  {formatCurrency(insights?.spend ?? 0)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {insights ? formatNumber(insights.impressions) : "-"}
+                  {formatNumber(insights?.impressions ?? 0)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {insights ? formatNumber(insights.clicks) : "-"}
+                  {formatNumber(insights?.clicks ?? 0)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {insights ? `${insights.ctr.toFixed(2)}%` : "-"}
+                  {`${(insights?.ctr ?? 0).toFixed(2)}%`}
                 </TableCell>
                 <TableCell className="text-right">
-                  {insights ? (
-                    <div className="flex flex-col items-end">
-                      <span className="font-medium">{formatNumber(insights.conversions)}</span>
-                      {(insights.leads > 0 || insights.purchases > 0) && (
-                        <span className="text-xs text-muted-foreground">
-                          {insights.leads > 0 && `${insights.leads} leads`}
-                          {insights.leads > 0 && insights.purchases > 0 && ", "}
-                          {insights.purchases > 0 && `${insights.purchases} compras`}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    "-"
-                  )}
+                  <div className="flex flex-col items-end">
+                    <span className="font-medium">{formatNumber(insights?.conversions ?? 0)}</span>
+                    {insights && (insights.leads > 0 || insights.purchases > 0) && (
+                      <span className="text-xs text-muted-foreground">
+                        {insights.leads > 0 && `${insights.leads} leads`}
+                        {insights.leads > 0 && insights.purchases > 0 && ", "}
+                        {insights.purchases > 0 && `${insights.purchases} compras`}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             )
