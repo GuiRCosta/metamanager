@@ -153,11 +153,22 @@ export function CampaignTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  {campaign.dailyBudget
-                    ? `R$ ${campaign.dailyBudget.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                      })}`
-                    : "-"}
+                  {campaign.dailyBudget ? (
+                    <div className="flex items-center justify-end gap-2">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal text-blue-400 border-blue-400/30">
+                        CBO
+                      </Badge>
+                      <span>
+                        R$ {campaign.dailyBudget.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal text-muted-foreground border-muted-foreground/30">
+                      ABO
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
