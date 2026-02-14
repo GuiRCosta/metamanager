@@ -918,39 +918,18 @@ class MetaAPI:
 
         return all_ads
 
-    async def _paginate_count(self, endpoint: str) -> int:
-        """Conta objetos de um endpoint com paginação robusta."""
-        result = await self._request(
-            "GET",
-            endpoint,
-            params={
-                "fields": "id",
-                "limit": 500,
-            },
-        )
+    async def _summary_count(self, endpoint: str, filtering: Optional[str] = None) -> int:
+        """Conta objetos usando summary=true (eficiente, sem paginação)."""
+        params: dict = {
+            "summary": "true",
+            "limit": 0,
+        }
+        if filtering:
+            params["filtering"] = filtering
 
-        all_items = result.get("data", [])
-
-        # Paginação com retry
-        while "paging" in result and "next" in result["paging"]:
-            next_url = result["paging"]["next"]
-            for attempt in range(MAX_RETRIES):
-                try:
-                    response = await self.client.get(next_url, timeout=30.0)
-                    result = response.json()
-                    if "error" in result:
-                        # Erro da API - parar paginação
-                        return len(all_items)
-                    all_items.extend(result.get("data", []))
-                    break
-                except Exception:
-                    if attempt < MAX_RETRIES - 1:
-                        await asyncio.sleep(BASE_RETRY_DELAY * (2 ** attempt))
-                        continue
-                    # Falhou após retries - retornar contagem parcial
-                    return len(all_items)
-
-        return len(all_items)
+        result = await self._request("GET", endpoint, params=params)
+        summary = result.get("summary", {})
+        return summary.get("total_count", 0)
 
     async def get_account_limits(self) -> dict:
         """Obtém contagem atual e limites de campanhas, ad sets e ads da conta."""
@@ -962,11 +941,15 @@ class MetaAPI:
         )
         account_name = account_result.get("name", "")
 
-        # Contar objetos em paralelo para melhor performance
+        # Filtrar apenas status que contam contra os limites da Meta
+        # (exclui DELETED e ARCHIVED)
+        status_filter = '[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED","IN_PROCESS","WITH_ISSUES"]}]'
+
+        # Contar objetos em paralelo usando summary (eficiente)
         campaigns_count, adsets_count, ads_count = await asyncio.gather(
-            self._paginate_count(f"act_{self.ad_account_id}/campaigns"),
-            self._paginate_count(f"act_{self.ad_account_id}/adsets"),
-            self._paginate_count(f"act_{self.ad_account_id}/ads"),
+            self._summary_count(f"act_{self.ad_account_id}/campaigns", status_filter),
+            self._summary_count(f"act_{self.ad_account_id}/adsets", status_filter),
+            self._summary_count(f"act_{self.ad_account_id}/ads", status_filter),
         )
 
         # Limites padrão do Meta (podem variar por conta)
