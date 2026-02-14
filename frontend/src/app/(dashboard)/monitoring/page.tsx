@@ -53,6 +53,7 @@ const FALLBACK_USER_MAP: Record<string, string> = {
 function formatTime(timestamp: string): string {
   const date = new Date(timestamp + "Z")
   return date.toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",

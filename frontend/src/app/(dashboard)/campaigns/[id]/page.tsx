@@ -346,7 +346,7 @@ export default function CampaignDetailsPage() {
               <CardContent>
                 <div className="text-2xl font-bold">
                   {campaign.created_at
-                    ? new Date(campaign.created_at).toLocaleDateString("pt-BR")
+                    ? new Date(campaign.created_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
                     : "-"}
                 </div>
               </CardContent>
@@ -413,7 +413,7 @@ export default function CampaignDetailsPage() {
                   <p className="text-sm text-muted-foreground">Última Atualização</p>
                   <p>
                     {campaign.updated_at
-                      ? new Date(campaign.updated_at).toLocaleString("pt-BR")
+                      ? new Date(campaign.updated_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
                       : "-"}
                   </p>
                 </div>

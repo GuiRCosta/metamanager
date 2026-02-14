@@ -97,6 +97,7 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
 
         <span className="text-xs text-muted-foreground">
           {new Date(message.timestamp).toLocaleTimeString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
             hour: "2-digit",
             minute: "2-digit",
           })}
