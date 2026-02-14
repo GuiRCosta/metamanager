@@ -20,6 +20,7 @@ const STORAGE_KEY = "selectedAdAccountId"
 export function AdAccountProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession()
   const userId = (session?.user as { id?: string })?.id
+  const userRole = (session?.user as { role?: string })?.role
   const [accounts, setAccounts] = useState<AdAccount[]>([])
   const [selectedAccount, setSelectedAccountState] = useState<AdAccount | null>(null)
   const [loading, setLoading] = useState(true)
@@ -74,10 +75,12 @@ export function AdAccountProvider({ children }: { children: ReactNode }) {
   }, [userId])
 
   useEffect(() => {
-    if (userId) {
+    if (userId && userRole !== "superadmin") {
       fetchAccounts()
+    } else {
+      setLoading(false)
     }
-  }, [userId])
+  }, [userId, userRole])
 
   return (
     <AdAccountContext.Provider
