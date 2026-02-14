@@ -8,7 +8,11 @@ export default async function Home() {
     redirect("/login")
   }
 
-  // If authenticated, show the dashboard (handled by (dashboard)/page.tsx)
-  // We need to use a different approach - redirect to dashboard route
+  const userRole = (session.user as { role?: string })?.role
+
+  if (userRole === "superadmin") {
+    redirect("/monitoring")
+  }
+
   redirect("/dashboard")
 }
