@@ -101,11 +101,11 @@ export function CampaignTable({
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="rounded-md border overflow-x-auto">
+      <Table className="table-fixed w-full">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-12">
+            <TableHead className="w-10">
               <Checkbox
                 checked={
                   selectedIds.length === campaigns.length && campaigns.length > 0
@@ -113,11 +113,11 @@ export function CampaignTable({
                 onCheckedChange={toggleSelectAll}
               />
             </TableHead>
-            <TableHead>Nome</TableHead>
-            <TableHead>Objetivo</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Orçamento Diário</TableHead>
-            <TableHead className="w-12"></TableHead>
+            <TableHead className="w-[45%]">Nome</TableHead>
+            <TableHead className="w-[12%]">Objetivo</TableHead>
+            <TableHead className="w-[10%]">Status</TableHead>
+            <TableHead className="w-[15%] text-right">Orçamento Diário</TableHead>
+            <TableHead className="w-10"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -139,7 +139,8 @@ export function CampaignTable({
                 <TableCell>
                   <Link
                     href={`/campaigns/${campaign.id}`}
-                    className="font-medium hover:underline"
+                    className="font-medium hover:underline block truncate"
+                    title={campaign.name}
                   >
                     {campaign.name}
                   </Link>
