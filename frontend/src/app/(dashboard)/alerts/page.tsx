@@ -43,7 +43,9 @@ export default function AlertsPage() {
     try {
       setLoading(true)
       setError(null)
-      const response = await alertsApi.getAll()
+      const response = await alertsApi.getAll({
+        ad_account_id: selectedAccount?.account_id,
+      })
       setAlerts(response.alerts)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar alertas")
@@ -54,7 +56,7 @@ export default function AlertsPage() {
 
   useEffect(() => {
     fetchAlerts()
-  }, [])
+  }, [selectedAccount?.account_id])
 
   const unreadCount = alerts.filter((a) => !a.read).length
 

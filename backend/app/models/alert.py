@@ -27,6 +27,7 @@ class Alert(BaseModel):
     message: str
     campaign_id: Optional[str] = None
     campaign_name: Optional[str] = None
+    ad_account_id: Optional[str] = None
     read: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -44,6 +45,7 @@ class AlertResponse(BaseModel):
     message: str
     campaign_id: Optional[str] = None
     campaign_name: Optional[str] = None
+    ad_account_id: Optional[str] = None
     read: bool
     created_at: str
 

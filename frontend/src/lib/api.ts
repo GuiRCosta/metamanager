@@ -641,8 +641,9 @@ export interface AlertUpdate {
 }
 
 export const alertsApi = {
-  getAll: (filters?: { type?: string; priority?: string; read?: boolean; limit?: number }) => {
+  getAll: (filters?: { type?: string; priority?: string; read?: boolean; limit?: number; ad_account_id?: string }) => {
     const params = new URLSearchParams()
+    if (filters?.ad_account_id) params.append("ad_account_id", filters.ad_account_id)
     if (filters?.type) params.append("type", filters.type)
     if (filters?.priority) params.append("priority", filters.priority)
     if (filters?.read !== undefined) params.append("read", String(filters.read))

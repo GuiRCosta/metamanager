@@ -18,15 +18,33 @@ import { AccountLimitsCard } from "@/components/features/dashboard/account-limit
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { dashboardApi, alertsApi, type DashboardMetrics, type Alert } from "@/lib/api"
+import { dashboardApi, alertsApi, settingsApi, type DashboardMetrics, type Alert } from "@/lib/api"
 import { useAdAccount } from "@/contexts/ad-account-context"
+import { useSession } from "next-auth/react"
 
 export default function DashboardPage() {
   const { selectedAccount, loading: accountLoading } = useAdAccount()
+  const { data: session } = useSession()
+  const userId = (session?.user as { id?: string })?.id
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [alerts, setAlerts] = useState<Alert[]>([])
+  const [monthlyBudget, setMonthlyBudget] = useState(5000)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadBudget = async () => {
+      try {
+        const settings = await settingsApi.get(userId)
+        if (settings.budget?.monthly_budget) {
+          setMonthlyBudget(settings.budget.monthly_budget)
+        }
+      } catch {
+        // Keep default
+      }
+    }
+    loadBudget()
+  }, [userId])
 
   const fetchData = async () => {
     if (!selectedAccount) return
@@ -37,7 +55,7 @@ export default function DashboardPage() {
 
       const [metricsResponse, alertsResponse] = await Promise.all([
         dashboardApi.getMetrics(selectedAccount.account_id, "last_7d"),
-        alertsApi.getAll({ limit: 5 }),
+        alertsApi.getAll({ limit: 5, ad_account_id: selectedAccount.account_id }),
       ])
 
       setMetrics(metricsResponse.metrics)
@@ -178,7 +196,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <BudgetCard
           spent={displayMetrics.spend}
-          limit={5000}
+          limit={monthlyBudget}
           projected={displayMetrics.spend * 1.2}
         />
 

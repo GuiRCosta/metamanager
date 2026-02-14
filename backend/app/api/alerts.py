@@ -48,6 +48,7 @@ def alert_to_response(alert: dict) -> AlertResponse:
         message=alert["message"],
         campaign_id=alert.get("campaign_id"),
         campaign_name=alert.get("campaign_name"),
+        ad_account_id=alert.get("ad_account_id"),
         read=alert.get("read", False),
         created_at=alert["created_at"],
     )
@@ -58,12 +59,15 @@ async def get_alerts(
     type: Optional[str] = Query(None),
     priority: Optional[str] = Query(None),
     read: Optional[bool] = Query(None),
+    ad_account_id: Optional[str] = Query(None, description="Filtrar por conta de anúncios"),
     limit: int = Query(50, ge=1, le=100),
 ):
     """Get all alerts with optional filtering"""
     alerts = load_alerts()
 
     # Apply filters
+    if ad_account_id:
+        alerts = [a for a in alerts if a.get("ad_account_id") == ad_account_id]
     if type:
         alerts = [a for a in alerts if a["type"] == type]
     if priority:
@@ -74,9 +78,8 @@ async def get_alerts(
     # Sort by created_at descending (newest first)
     alerts.sort(key=lambda x: x["created_at"], reverse=True)
 
-    # Calculate unread count before limiting
-    all_alerts = load_alerts()
-    unread_count = sum(1 for a in all_alerts if not a.get("read", False))
+    # Calculate unread count (same scope as filtered alerts)
+    unread_count = sum(1 for a in alerts if not a.get("read", False))
 
     # Apply limit
     limited_alerts = alerts[:limit]

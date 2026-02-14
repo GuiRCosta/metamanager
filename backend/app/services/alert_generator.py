@@ -80,6 +80,7 @@ def create_alert(
     message: str,
     campaign_id: Optional[str] = None,
     campaign_name: Optional[str] = None,
+    ad_account_id: Optional[str] = None,
 ) -> dict:
     """Create a new alert dict"""
     alert = Alert(
@@ -89,13 +90,14 @@ def create_alert(
         message=message,
         campaign_id=campaign_id,
         campaign_name=campaign_name,
+        ad_account_id=ad_account_id,
     )
     alert_dict = alert.model_dump()
     alert_dict["created_at"] = alert.created_at.isoformat()
     return alert_dict
 
 
-def generate_budget_alerts(campaigns: list[dict], settings: dict) -> list[dict]:
+def generate_budget_alerts(campaigns: list[dict], settings: dict, ad_account_id: Optional[str] = None) -> list[dict]:
     """Generate alerts for budget thresholds"""
     new_alerts = []
     alerts = load_alerts()
@@ -124,6 +126,7 @@ def generate_budget_alerts(campaigns: list[dict], settings: dict) -> list[dict]:
                         AlertPriority.CRITICAL,
                         title,
                         f"O orçamento diário total (R$ {total_daily_budget:.2f}) excedeu o limite de R$ {daily_limit:.2f}.",
+                        ad_account_id=ad_account_id,
                     )
                 )
 
@@ -137,6 +140,7 @@ def generate_budget_alerts(campaigns: list[dict], settings: dict) -> list[dict]:
                         AlertPriority.HIGH,
                         title,
                         f"O orçamento diário está em {usage_percent:.0f}% do limite (R$ {total_daily_budget:.2f} de R$ {daily_limit:.2f}).",
+                        ad_account_id=ad_account_id,
                     )
                 )
 
@@ -150,13 +154,14 @@ def generate_budget_alerts(campaigns: list[dict], settings: dict) -> list[dict]:
                         AlertPriority.MEDIUM,
                         title,
                         f"O orçamento diário atingiu {usage_percent:.0f}% do limite configurado.",
+                        ad_account_id=ad_account_id,
                     )
                 )
 
     return new_alerts
 
 
-def generate_performance_alerts(campaigns: list[dict]) -> list[dict]:
+def generate_performance_alerts(campaigns: list[dict], ad_account_id: Optional[str] = None) -> list[dict]:
     """Generate alerts for performance issues"""
     new_alerts = []
     alerts = load_alerts()
@@ -185,6 +190,7 @@ def generate_performance_alerts(campaigns: list[dict]) -> list[dict]:
                         f"A campanha está com CTR de {float(ctr):.2f}%, abaixo do recomendado (1%).",
                         campaign_id,
                         campaign_name,
+                        ad_account_id=ad_account_id,
                     )
                 )
 
@@ -201,6 +207,7 @@ def generate_performance_alerts(campaigns: list[dict]) -> list[dict]:
                         f"O custo por clique está em R$ {float(cpc):.2f}, acima do ideal.",
                         campaign_id,
                         campaign_name,
+                        ad_account_id=ad_account_id,
                     )
                 )
 
@@ -218,13 +225,14 @@ def generate_performance_alerts(campaigns: list[dict]) -> list[dict]:
                         "A campanha está gastando mas não está gerando impressões. Verifique a segmentação.",
                         campaign_id,
                         campaign_name,
+                        ad_account_id=ad_account_id,
                     )
                 )
 
     return new_alerts
 
 
-def generate_optimization_alerts(campaigns: list[dict]) -> list[dict]:
+def generate_optimization_alerts(campaigns: list[dict], ad_account_id: Optional[str] = None) -> list[dict]:
     """Generate alerts for optimization opportunities"""
     new_alerts = []
     alerts = load_alerts()
@@ -253,6 +261,7 @@ def generate_optimization_alerts(campaigns: list[dict]) -> list[dict]:
                         f"Esta campanha pausada tinha CTR de {float(ctr):.2f}%. Considere reativá-la.",
                         campaign_id,
                         campaign_name,
+                        ad_account_id=ad_account_id,
                     )
                 )
 
@@ -267,13 +276,14 @@ def generate_optimization_alerts(campaigns: list[dict]) -> list[dict]:
                     AlertPriority.LOW,
                     title,
                     f"Você tem {len(active_campaigns)} campanhas ativas. Considere fazer testes A/B para otimizar resultados.",
+                    ad_account_id=ad_account_id,
                 )
             )
 
     return new_alerts
 
 
-def generate_status_alerts(campaigns: list[dict], previous_campaigns: Optional[list[dict]] = None) -> list[dict]:
+def generate_status_alerts(campaigns: list[dict], previous_campaigns: Optional[list[dict]] = None, ad_account_id: Optional[str] = None) -> list[dict]:
     """Generate alerts for status changes"""
     new_alerts = []
 
@@ -302,13 +312,14 @@ def generate_status_alerts(campaigns: list[dict], previous_campaigns: Optional[l
                             f"A campanha foi alterada de Ativa para {current_status}.",
                             campaign_id,
                             campaign_name,
+                            ad_account_id=ad_account_id,
                         )
                     )
 
     return new_alerts
 
 
-def run_alert_generation(campaigns: list[dict], previous_campaigns: Optional[list[dict]] = None, user_id: Optional[str] = None) -> int:
+def run_alert_generation(campaigns: list[dict], previous_campaigns: Optional[list[dict]] = None, user_id: Optional[str] = None, ad_account_id: Optional[str] = None) -> int:
     """
     Run all alert generators and save new alerts.
     Returns the number of new alerts created.
@@ -319,10 +330,10 @@ def run_alert_generation(campaigns: list[dict], previous_campaigns: Optional[lis
     new_alerts = []
 
     # Generate all types of alerts
-    new_alerts.extend(generate_budget_alerts(campaigns, settings))
-    new_alerts.extend(generate_performance_alerts(campaigns))
-    new_alerts.extend(generate_optimization_alerts(campaigns))
-    new_alerts.extend(generate_status_alerts(campaigns, previous_campaigns))
+    new_alerts.extend(generate_budget_alerts(campaigns, settings, ad_account_id))
+    new_alerts.extend(generate_performance_alerts(campaigns, ad_account_id))
+    new_alerts.extend(generate_optimization_alerts(campaigns, ad_account_id))
+    new_alerts.extend(generate_status_alerts(campaigns, previous_campaigns, ad_account_id))
 
     if new_alerts:
         alerts.extend(new_alerts)

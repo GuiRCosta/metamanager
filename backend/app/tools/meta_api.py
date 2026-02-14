@@ -576,26 +576,49 @@ class MetaAPI:
         date_preset: str = "last_7d",
         include_archived: bool = False,
     ) -> list[dict]:
-        """Obtém métricas de todas as campanhas para comparação."""
-        campaigns = await self.get_campaigns(include_archived=include_archived)
-        campaigns_with_insights = []
+        """Obtém métricas de todas as campanhas em uma única chamada otimizada."""
+        filtering = '[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED","IN_PROCESS","WITH_ISSUES"'
+        if include_archived:
+            filtering += ',"ARCHIVED"'
+        filtering += ']}]'
 
-        for campaign in campaigns:
-            campaign_data = {
+        result = await self._request(
+            "GET",
+            f"act_{self.ad_account_id}/campaigns",
+            params={
+                "fields": "id,name,status,effective_status,objective,insights.date_preset(" + date_preset + "){spend,impressions,clicks,ctr,cpc,actions}",
+                "filtering": filtering,
+                "limit": 500,
+            },
+        )
+
+        campaigns_with_insights = []
+        data = result.get("data", [])
+
+        for campaign in data:
+            insights_data = campaign.get("insights", {}).get("data", [])
+            insights = insights_data[0] if insights_data else {}
+
+            actions = insights.get("actions", [])
+            conversions = 0
+            for action in actions:
+                if action.get("action_type") in ["lead", "purchase", "omni_purchase"]:
+                    conversions += int(action.get("value", 0))
+
+            campaigns_with_insights.append({
                 "id": campaign["id"],
                 "name": campaign["name"],
                 "status": campaign.get("effective_status", campaign.get("status", "UNKNOWN")),
                 "objective": campaign.get("objective", "UNKNOWN"),
-            }
-            try:
-                insights = await self.get_campaign_insights(campaign["id"], date_preset)
-                if insights:
-                    campaign_data["insights"] = insights
-                else:
-                    campaign_data["insights"] = None
-            except Exception:
-                campaign_data["insights"] = None
-            campaigns_with_insights.append(campaign_data)
+                "insights": {
+                    "spend": float(insights.get("spend", 0)),
+                    "impressions": int(insights.get("impressions", 0)),
+                    "clicks": int(insights.get("clicks", 0)),
+                    "conversions": conversions,
+                    "ctr": float(insights.get("ctr", 0)),
+                    "cpc": float(insights.get("cpc", 0)) if insights.get("cpc") else 0,
+                } if insights else None,
+            })
 
         return campaigns_with_insights
 
