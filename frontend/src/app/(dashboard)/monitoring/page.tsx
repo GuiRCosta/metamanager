@@ -13,6 +13,8 @@ import {
   ChevronDown,
   ChevronUp,
   Server,
+  Copy,
+  Check,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -92,6 +94,29 @@ export default function MonitoringPage() {
   const [totalLogs, setTotalLogs] = useState(0)
   const [loading, setLoading] = useState(true)
   const [expandedLog, setExpandedLog] = useState<number | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  function formatLogAsText(log: ActivityLog): string {
+    return [
+      `[${log.timestamp}] ${log.status_code || "-"} ${log.method} ${log.path}`,
+      `  Usuario: ${formatUserId(log.user_id)}`,
+      `  Tempo: ${log.response_time_ms?.toFixed(0) || "-"}ms`,
+      `  IP: ${log.ip_address || "-"}`,
+      log.query_params ? `  Params: ${log.query_params}` : null,
+      log.error_detail ? `  Erro: ${log.error_detail}` : null,
+      log.user_agent ? `  UA: ${log.user_agent}` : null,
+    ].filter(Boolean).join("\n")
+  }
+
+  function formatAllLogsAsText(items: ActivityLog[]): string {
+    return items.map(formatLogAsText).join("\n\n")
+  }
+
+  async function copyToClipboard(text: string, id: string) {
+    await navigator.clipboard.writeText(text)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
 
   // Filters
   const [filterMethod, setFilterMethod] = useState<string>("all")
@@ -405,6 +430,20 @@ export default function MonitoringPage() {
             <Button variant="outline" size="sm" onClick={() => { setPage(1); fetchData() }}>
               Aplicar
             </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => copyToClipboard(formatAllLogsAsText(logs), "all")}
+              disabled={logs.length === 0}
+            >
+              {copiedId === "all" ? (
+                <Check className="h-4 w-4 mr-1 text-green-400" />
+              ) : (
+                <Copy className="h-4 w-4 mr-1" />
+              )}
+              {copiedId === "all" ? "Copiado!" : `Copiar Logs (${logs.length})`}
+            </Button>
           </div>
 
           {/* Logs Table */}
@@ -493,6 +532,24 @@ export default function MonitoringPage() {
                                     <span className="text-red-300">{log.error_detail}</span>
                                   </div>
                                 )}
+                                <div className="col-span-2 mt-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      copyToClipboard(formatLogAsText(log), String(log.id))
+                                    }}
+                                  >
+                                    {copiedId === String(log.id) ? (
+                                      <Check className="h-3 w-3 mr-1 text-green-400" />
+                                    ) : (
+                                      <Copy className="h-3 w-3 mr-1" />
+                                    )}
+                                    {copiedId === String(log.id) ? "Copiado!" : "Copiar log"}
+                                  </Button>
+                                </div>
                               </div>
                             </td>
                           </tr>
