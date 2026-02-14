@@ -89,6 +89,8 @@ async def list_campaigns(
             page=page,
             limit=limit,
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -114,6 +116,8 @@ async def get_campaign(campaign_id: str, user_id: Optional[str] = Query(None)):
             updated_at=campaign.get("updated_time"),
         )
     except HTTPException:
+        raise
+    except MetaAPIError:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -147,6 +151,8 @@ async def create_campaign(
             created_at=created.get("created_time"),
             updated_at=created.get("updated_time"),
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -176,6 +182,8 @@ async def update_campaign(campaign_id: str, campaign: CampaignUpdate, user_id: O
         )
     except HTTPException:
         raise
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -187,6 +195,8 @@ async def delete_campaign(campaign_id: str, user_id: Optional[str] = Query(None)
         meta_api = get_meta_api(user_id=user_id)
         await meta_api.delete_campaign(campaign_id)
         return {"message": "Campanha arquivada com sucesso"}
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -352,6 +362,8 @@ async def get_campaign_insights(
         return CampaignInsights(**insights)
     except HTTPException:
         raise
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -445,6 +457,8 @@ async def get_ad_set_ads(
             ],
             total=len(ads),
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

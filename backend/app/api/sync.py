@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
 
-from app.tools.meta_api import MetaAPI
+from app.tools.meta_api import MetaAPI, MetaAPIError
 from app.services.alert_generator import run_alert_generation
 
 router = APIRouter()
@@ -47,6 +47,8 @@ async def get_ad_accounts(user_id: Optional[str] = Query(None)):
             success=True,
             accounts=[AdAccount(**acc) for acc in accounts],
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -89,6 +91,8 @@ async def sync_all(ad_account_id: Optional[str] = Query(None, description="ID da
             new_alerts=new_alerts,
             errors=errors if errors else None,
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -108,6 +112,8 @@ async def sync_campaigns(
             "campaigns_synced": len(campaigns),
             "campaigns": campaigns,
         }
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -137,6 +143,8 @@ async def sync_metrics(
                 continue
 
         return {"success": True, "metrics_synced": len(all_metrics), "metrics": all_metrics}
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -222,6 +230,8 @@ async def get_campaigns_insights(
         result.sort(key=lambda x: x.spend, reverse=True)
 
         return CampaignsInsightsResponse(success=True, campaigns=result)
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -258,6 +268,8 @@ async def get_trends(
             success=True,
             data=[DailyMetric(**d) for d in daily_data],
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -305,6 +317,8 @@ async def get_dashboard_metrics(
                 "total_campaigns": len(campaigns),
             },
         }
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -365,6 +379,8 @@ async def get_adsets_insights(
         result.sort(key=lambda x: x.spend, reverse=True)
 
         return AdSetsInsightsResponse(success=True, ad_sets=result)
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -433,6 +449,8 @@ async def get_ads_insights(
         result.sort(key=lambda x: x.spend, reverse=True)
 
         return AdsInsightsResponse(success=True, ads=result)
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -542,6 +560,8 @@ async def estimate_reach(
             success=True,
             estimate=ReachEstimate(**estimate),
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -631,5 +651,7 @@ async def get_breakdown(
             breakdown_type=breakdown,
             data=items,
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

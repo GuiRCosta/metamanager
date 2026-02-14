@@ -71,6 +71,12 @@ class MetaAPI:
         data: Optional[dict] = None,
     ) -> dict:
         """Faz uma requisição para a Meta API com retry automático."""
+        if not self.access_token:
+            raise MetaAPIError(
+                "Meta API não configurada. Conecte sua conta em Configurações > Meta API.",
+                error_code=400,
+            )
+
         url = f"{self._base_url}/{endpoint}"
 
         default_params = {"access_token": self.access_token}

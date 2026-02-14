@@ -8,7 +8,11 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from fastapi.requests import Request
+from fastapi.responses import JSONResponse
+
 from app.config import get_settings
+from app.tools.meta_api import MetaAPIError
 from app.api.campaigns import router as campaigns_router
 from app.api.chat import router as chat_router
 from app.api.sync import router as sync_router
@@ -65,6 +69,12 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(MetaAPIError)
+async def meta_api_error_handler(request: Request, exc: MetaAPIError):
+    status_code = exc.error_code if exc.error_code and 400 <= exc.error_code < 600 else 400
+    return JSONResponse(status_code=status_code, content={"detail": exc.message})
 
 app.add_middleware(
     CORSMiddleware,

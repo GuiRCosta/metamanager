@@ -2,7 +2,7 @@ from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from app.tools.meta_api import MetaAPI
+from app.tools.meta_api import MetaAPI, MetaAPIError
 
 
 router = APIRouter()
@@ -85,6 +85,8 @@ async def search_interests(
             success=True,
             interests=[Interest(**i) for i in interests],
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -117,6 +119,8 @@ async def search_locations(
             success=True,
             locations=[Location(**loc) for loc in locations],
         )
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -145,5 +149,7 @@ async def get_categories(
         meta_api = get_meta_api(user_id=user_id)
         categories = await meta_api.get_targeting_categories(category_class)
         return CategoriesResponse(success=True, categories=categories)
+    except MetaAPIError:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
