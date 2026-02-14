@@ -17,30 +17,45 @@ from app.models.alert import Alert, AlertType, AlertPriority
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 ALERTS_FILE = DATA_DIR / "alerts.json"
-SETTINGS_FILE = DATA_DIR / "settings.json"
 
 
 def ensure_data_dir():
     DATA_DIR.mkdir(exist_ok=True)
 
 
-def load_alerts() -> list[dict]:
+def get_alerts_file(user_id: Optional[str] = None) -> Path:
+    """Retorna o path do arquivo de alertas para o usuário."""
+    if user_id:
+        return DATA_DIR / f"alerts_{user_id}.json"
+    return ALERTS_FILE
+
+
+def load_alerts(user_id: Optional[str] = None) -> list[dict]:
     ensure_data_dir()
-    if ALERTS_FILE.exists():
-        with open(ALERTS_FILE, "r") as f:
+    alerts_file = get_alerts_file(user_id)
+    if alerts_file.exists():
+        with open(alerts_file, "r") as f:
             return json.load(f)
     return []
 
 
-def save_alerts(alerts: list[dict]):
+def save_alerts(alerts: list[dict], user_id: Optional[str] = None):
     ensure_data_dir()
-    with open(ALERTS_FILE, "w") as f:
+    alerts_file = get_alerts_file(user_id)
+    with open(alerts_file, "w") as f:
         json.dump(alerts, f, indent=2, default=str)
 
 
-def load_settings() -> dict:
-    if SETTINGS_FILE.exists():
-        with open(SETTINGS_FILE, "r") as f:
+def load_settings(user_id: Optional[str] = None) -> dict:
+    """Carrega settings do usuário específico ou global."""
+    if user_id:
+        user_file = DATA_DIR / f"settings_{user_id}.json"
+        if user_file.exists():
+            with open(user_file, "r") as f:
+                return json.load(f)
+    global_file = DATA_DIR / "settings.json"
+    if global_file.exists():
+        with open(global_file, "r") as f:
             return json.load(f)
     return {}
 
@@ -293,12 +308,12 @@ def generate_status_alerts(campaigns: list[dict], previous_campaigns: Optional[l
     return new_alerts
 
 
-def run_alert_generation(campaigns: list[dict], previous_campaigns: Optional[list[dict]] = None) -> int:
+def run_alert_generation(campaigns: list[dict], previous_campaigns: Optional[list[dict]] = None, user_id: Optional[str] = None) -> int:
     """
     Run all alert generators and save new alerts.
     Returns the number of new alerts created.
     """
-    settings = load_settings()
+    settings = load_settings(user_id)
     alerts = load_alerts()
 
     new_alerts = []

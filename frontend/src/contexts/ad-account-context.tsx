@@ -42,7 +42,7 @@ export function AdAccountProvider({ children }: { children: ReactNode }) {
         if (savedAccount) {
           setSelectedAccountState(savedAccount)
           // Sync to backend on restore
-          settingsApi.setDefaultAccount(savedAccount.account_id, userId).catch(console.error)
+          settingsApi.setDefaultAccount(savedAccount.account_id).catch(console.error)
           return
         }
       }
@@ -51,7 +51,7 @@ export function AdAccountProvider({ children }: { children: ReactNode }) {
       if (activeAccounts.length > 0 && !selectedAccount) {
         setSelectedAccountState(activeAccounts[0])
         // Sync default selection to backend
-        settingsApi.setDefaultAccount(activeAccounts[0].account_id, userId).catch(console.error)
+        settingsApi.setDefaultAccount(activeAccounts[0].account_id).catch(console.error)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar contas")
@@ -65,7 +65,7 @@ export function AdAccountProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, account.account_id)
     // Sync to backend for scheduler/reports
     if (syncToBackend) {
-      settingsApi.setDefaultAccount(account.account_id, userId).catch(console.error)
+      settingsApi.setDefaultAccount(account.account_id).catch(console.error)
     }
   }
 

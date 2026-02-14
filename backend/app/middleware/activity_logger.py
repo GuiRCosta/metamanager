@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from starlette.responses import Response, StreamingResponse
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +77,29 @@ class ActivityLoggerMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             status_code = response.status_code
+
+            # Capture error detail from non-2xx responses
+            if status_code >= 400:
+                try:
+                    body_chunks = []
+                    async for chunk in response.body_iterator:
+                        if isinstance(chunk, str):
+                            body_chunks.append(chunk.encode("utf-8"))
+                        else:
+                            body_chunks.append(chunk)
+                    body_bytes = b"".join(body_chunks)
+                    error_detail = body_bytes.decode("utf-8", errors="replace")[:500]
+
+                    # Rebuild response with the consumed body
+                    response = Response(
+                        content=body_bytes,
+                        status_code=status_code,
+                        headers=dict(response.headers),
+                        media_type=response.media_type,
+                    )
+                except Exception:
+                    pass
+
             return response
         except Exception as e:
             error_detail = str(e)[:500]

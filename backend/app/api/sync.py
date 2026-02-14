@@ -76,7 +76,7 @@ async def sync_all(ad_account_id: Optional[str] = Query(None, description="ID da
         # Generate alerts based on campaign data
         new_alerts = 0
         try:
-            new_alerts = run_alert_generation(campaigns_with_insights)
+            new_alerts = run_alert_generation(campaigns_with_insights, user_id=user_id)
             if new_alerts > 0:
                 logging.info(f"Generated {new_alerts} new alerts")
         except Exception as e:

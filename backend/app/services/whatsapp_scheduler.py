@@ -1,11 +1,13 @@
 """
 Agendador de mensagens automáticas via WhatsApp.
 Envia relatórios diários e alertas de orçamento.
+Suporte multi-usuário: itera sobre todos os settings_{user_id}.json.
 """
 
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -19,30 +21,56 @@ from app.tools.meta_api import MetaAPI
 
 logger = logging.getLogger(__name__)
 
-SETTINGS_FILE = Path(__file__).parent.parent.parent / "data" / "settings.json"
-BUDGET_STATE_FILE = Path(__file__).parent.parent.parent / "data" / "budget_alerts_state.json"
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
+SETTINGS_FILE = DATA_DIR / "settings.json"
 
 
-def load_settings() -> dict:
-    """Carrega configurações do arquivo."""
+def get_all_user_ids() -> list[str]:
+    """Descobre todos os user_ids com settings configurados."""
+    user_ids = []
+    if not DATA_DIR.exists():
+        return user_ids
+    for path in DATA_DIR.glob("settings_*.json"):
+        match = re.match(r"settings_(.+)\.json$", path.name)
+        if match:
+            user_ids.append(match.group(1))
+    return user_ids
+
+
+def load_settings(user_id: str | None = None) -> dict:
+    """Carrega configurações do arquivo para um usuário específico ou global."""
+    if user_id:
+        user_file = DATA_DIR / f"settings_{user_id}.json"
+        if user_file.exists():
+            with open(user_file, "r", encoding="utf-8") as f:
+                return json.load(f)
     if SETTINGS_FILE.exists():
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 
-def load_budget_state() -> dict:
+def get_budget_state_file(user_id: str | None = None) -> Path:
+    """Retorna o path do arquivo de estado de alertas de orçamento."""
+    if user_id:
+        return DATA_DIR / f"budget_alerts_state_{user_id}.json"
+    return DATA_DIR / "budget_alerts_state.json"
+
+
+def load_budget_state(user_id: str | None = None) -> dict:
     """Carrega estado dos alertas de orçamento enviados."""
-    if BUDGET_STATE_FILE.exists():
-        with open(BUDGET_STATE_FILE, "r", encoding="utf-8") as f:
+    state_file = get_budget_state_file(user_id)
+    if state_file.exists():
+        with open(state_file, "r", encoding="utf-8") as f:
             return json.load(f)
     return {"alerts_sent": {}, "last_reset": None}
 
 
-def save_budget_state(state: dict):
+def save_budget_state(state: dict, user_id: str | None = None):
     """Salva estado dos alertas de orçamento."""
-    BUDGET_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(BUDGET_STATE_FILE, "w", encoding="utf-8") as f:
+    state_file = get_budget_state_file(user_id)
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(state_file, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)
 
 
@@ -71,16 +99,25 @@ def get_allowed_numbers() -> list[str]:
     return get_evolution_config().allowed_numbers
 
 
-def get_notification_settings() -> dict:
+def get_notification_settings(user_id: str | None = None) -> dict:
     """Obtém configurações de notificação."""
-    settings = load_settings()
+    settings = load_settings(user_id)
     return settings.get("notifications", {})
 
 
-def get_budget_settings() -> dict:
+def get_budget_settings(user_id: str | None = None) -> dict:
     """Obtém configurações de orçamento."""
-    settings = load_settings()
+    settings = load_settings(user_id)
     return settings.get("budget", {})
+
+
+def has_valid_meta_config(user_id: str | None = None) -> bool:
+    """Verifica se o usuário tem credenciais Meta válidas configuradas."""
+    settings = load_settings(user_id)
+    meta_api = settings.get("meta_api", {})
+    access_token = meta_api.get("access_token", "")
+    ad_account_id = meta_api.get("ad_account_id", "")
+    return bool(access_token and ad_account_id)
 
 
 async def send_to_all_allowed(client: EvolutionClient, message: str):
@@ -102,10 +139,14 @@ async def send_to_all_allowed(client: EvolutionClient, message: str):
             logger.error(f"Erro ao enviar para {number}: {e}")
 
 
-async def generate_daily_report() -> str:
-    """Gera relatório diário de performance."""
+async def generate_daily_report(user_id: str | None = None) -> str:
+    """Gera relatório diário de performance para um usuário."""
     try:
-        meta_api = MetaAPI()
+        if not has_valid_meta_config(user_id):
+            logger.info(f"Usuário {user_id or 'global'} sem credenciais Meta configuradas, pulando relatório")
+            return ""
+
+        meta_api = MetaAPI(user_id=user_id)
         insights = await meta_api.get_account_insights(date_preset="today")
 
         if not insights:
@@ -154,13 +195,13 @@ async def generate_daily_report() -> str:
         return report
 
     except Exception as e:
-        logger.error(f"Erro ao gerar relatório diário: {e}")
+        logger.error(f"Erro ao gerar relatório diário (user={user_id or 'global'}): {e}")
         return f"Erro ao gerar relatório: {str(e)}"
 
 
-async def check_budget_alerts():
-    """Verifica e envia alertas de orçamento."""
-    settings = load_settings()
+async def check_budget_alerts_for_user(user_id: str | None = None):
+    """Verifica e envia alertas de orçamento para um usuário específico."""
+    settings = load_settings(user_id)
     budget_settings = settings.get("budget", {})
     notification_settings = settings.get("notifications", {})
 
@@ -171,19 +212,23 @@ async def check_budget_alerts():
     if monthly_budget <= 0:
         return
 
+    if not has_valid_meta_config(user_id):
+        logger.debug(f"Usuário {user_id or 'global'} sem credenciais Meta, pulando alerta de orçamento")
+        return
+
     alerts_config = budget_settings.get("alerts", {})
 
-    # Carregar estado dos alertas
-    state = load_budget_state()
+    # Carregar estado dos alertas (per-user)
+    state = load_budget_state(user_id)
 
     # Resetar alertas no início do mês
     current_month = datetime.now().strftime("%Y-%m")
     if state.get("last_reset") != current_month:
         state = {"alerts_sent": {}, "last_reset": current_month}
-        save_budget_state(state)
+        save_budget_state(state, user_id)
 
     try:
-        meta_api = MetaAPI()
+        meta_api = MetaAPI(user_id=user_id)
         insights = await meta_api.get_account_insights(date_preset="this_month")
 
         if not insights:
@@ -227,9 +272,9 @@ Prioridade: {priority}
 
                 # Marcar como enviado
                 state["alerts_sent"][alert_key] = datetime.now().isoformat()
-                save_budget_state(state)
+                save_budget_state(state, user_id)
 
-                logger.info(f"Alerta de orçamento {label} enviado")
+                logger.info(f"Alerta de orçamento {label} enviado (user={user_id or 'global'})")
 
         # Verificar projeção de excesso
         if alerts_config.get("projection_excess", True):
@@ -257,28 +302,53 @@ Considere ajustar seus gastos ou aumentar o orçamento.
 """
                         await send_to_all_allowed(client, message)
                         state["alerts_sent"][alert_key] = datetime.now().isoformat()
-                        save_budget_state(state)
+                        save_budget_state(state, user_id)
 
     except Exception as e:
-        logger.error(f"Erro ao verificar alertas de orçamento: {e}")
+        logger.error(f"Erro ao verificar alertas de orçamento (user={user_id or 'global'}): {e}")
+
+
+async def check_budget_alerts():
+    """Verifica alertas de orçamento para TODOS os usuários."""
+    user_ids = get_all_user_ids()
+
+    if not user_ids:
+        logger.info("Nenhum usuário com settings configurado, pulando verificação de orçamento")
+        return
+
+    for user_id in user_ids:
+        try:
+            await check_budget_alerts_for_user(user_id)
+        except Exception as e:
+            logger.error(f"Erro ao verificar orçamento do usuário {user_id}: {e}")
 
 
 async def send_daily_report_job():
-    """Job que envia o relatório diário."""
-    notification_settings = get_notification_settings()
-
-    if not notification_settings.get("daily_reports", True):
-        logger.info("Relatórios diários desabilitados")
-        return
-
+    """Job que envia o relatório diário para todos os usuários."""
     client = get_evolution_client_from_settings()
     if not client:
         logger.warning("Cliente Evolution não configurado")
         return
 
-    report = await generate_daily_report()
-    await send_to_all_allowed(client, report)
-    logger.info("Relatório diário enviado")
+    user_ids = get_all_user_ids()
+
+    if not user_ids:
+        logger.info("Nenhum usuário com settings configurado, pulando relatório diário")
+        return
+
+    for user_id in user_ids:
+        try:
+            notification_settings = get_notification_settings(user_id)
+            if not notification_settings.get("daily_reports", True):
+                logger.info(f"Relatórios diários desabilitados para usuário {user_id}")
+                continue
+
+            report = await generate_daily_report(user_id)
+            if report:
+                await send_to_all_allowed(client, report)
+                logger.info(f"Relatório diário enviado para usuário {user_id}")
+        except Exception as e:
+            logger.error(f"Erro ao enviar relatório para usuário {user_id}: {e}")
 
 
 async def check_budget_alerts_job():
@@ -391,9 +461,19 @@ Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
             return {"success": False, "message": "WhatsApp não configurado"}
 
         try:
-            report = await generate_daily_report()
-            await send_to_all_allowed(client, report)
-            return {"success": True, "message": "Relatório enviado"}
+            user_ids = get_all_user_ids()
+            if not user_ids:
+                return {"success": False, "message": "Nenhum usuário configurado"}
+
+            # Envia relatório do primeiro usuário com credenciais válidas
+            for user_id in user_ids:
+                if has_valid_meta_config(user_id):
+                    report = await generate_daily_report(user_id)
+                    if report:
+                        await send_to_all_allowed(client, report)
+                        return {"success": True, "message": "Relatório enviado"}
+
+            return {"success": False, "message": "Nenhum usuário com credenciais Meta configuradas"}
         except Exception as e:
             return {"success": False, "message": str(e)}
 
