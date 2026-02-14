@@ -514,18 +514,69 @@ class MetaAPI:
         ad_set_id: str,
         date_preset: str = "last_7d",
     ) -> list[dict]:
-        """Lista ads de um ad set com métricas de performance."""
-        ads = await self.get_ads(ad_set_id)
-        ads_with_insights = []
+        """Lista ads de um ad set com métricas de performance (chamada única)."""
+        fields = (
+            "id,name,status,effective_status,created_time,updated_time,"
+            "creative{id,name,object_type,thumbnail_url,image_url,video_id,object_story_spec},"
+            f"insights.date_preset({date_preset})"
+            "{spend,impressions,clicks,reach,ctr,cpc,actions}"
+        )
 
-        for ad in ads:
-            ad_data = {**ad}
-            try:
-                insights = await self.get_ad_insights(ad["id"], date_preset)
-                ad_data["insights"] = insights
-            except Exception:
-                ad_data["insights"] = None
-            ads_with_insights.append(ad_data)
+        result = await self._request(
+            "GET",
+            f"{ad_set_id}/ads",
+            params={
+                "fields": fields,
+                "filtering": '[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED","DRAFT","PENDING_REVIEW","DISAPPROVED","PREAPPROVED","PENDING_BILLING_INFO","CAMPAIGN_PAUSED","ARCHIVED","ADSET_PAUSED","IN_PROCESS","WITH_ISSUES"]}]',
+            },
+        )
+
+        ads_with_insights = []
+        for ad in result.get("data", []):
+            insights_data = ad.get("insights", {}).get("data", [])
+            insights = insights_data[0] if insights_data else {}
+
+            actions = insights.get("actions", [])
+            conversions = 0
+            leads = 0
+            purchases = 0
+            for action in actions:
+                action_type = action.get("action_type", "")
+                value = int(action.get("value", 0))
+                if action_type == "lead":
+                    leads = value
+                elif action_type in ["purchase", "omni_purchase", "onsite_conversion.purchase"]:
+                    purchases += value
+            conversions = leads + purchases
+
+            creative = ad.get("creative", {})
+            ads_with_insights.append({
+                "id": ad["id"],
+                "name": ad["name"],
+                "status": ad.get("status", "UNKNOWN"),
+                "effective_status": ad.get("effective_status"),
+                "created_time": ad.get("created_time"),
+                "updated_time": ad.get("updated_time"),
+                "creative": {
+                    "id": creative.get("id"),
+                    "name": creative.get("name"),
+                    "object_type": creative.get("object_type"),
+                    "thumbnail_url": creative.get("thumbnail_url"),
+                    "image_url": creative.get("image_url"),
+                    "video_id": creative.get("video_id"),
+                } if creative else None,
+                "insights": {
+                    "spend": float(insights.get("spend", 0)),
+                    "impressions": int(insights.get("impressions", 0)),
+                    "clicks": int(insights.get("clicks", 0)),
+                    "reach": int(insights.get("reach", 0)),
+                    "conversions": conversions,
+                    "leads": leads,
+                    "purchases": purchases,
+                    "ctr": float(insights.get("ctr", 0)),
+                    "cpc": float(insights.get("cpc", 0)) if insights.get("cpc") else 0,
+                } if insights else None,
+            })
 
         return ads_with_insights
 
