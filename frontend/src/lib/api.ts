@@ -893,7 +893,7 @@ export const logsApi = {
     limit?: number
   }) => {
     const params = new URLSearchParams()
-    if (filters?.user_id) params.append("user_id", filters.user_id)
+    if (filters?.user_id) params.append("filter_user_id", filters.user_id)
     if (filters?.method) params.append("method", filters.method)
     if (filters?.status_min) params.append("status_min", String(filters.status_min))
     if (filters?.status_max) params.append("status_max", String(filters.status_max))

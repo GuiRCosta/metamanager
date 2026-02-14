@@ -42,7 +42,7 @@ class LogStatsResponse(BaseModel):
 
 @router.get("", response_model=LogsResponse)
 async def get_logs(
-    user_id: Optional[str] = Query(None, description="Filtrar por user_id"),
+    filter_user_id: Optional[str] = Query(None, description="Filtrar por user_id"),
     method: Optional[str] = Query(None, description="Filtrar por metodo HTTP"),
     status_min: Optional[int] = Query(None, description="Status code minimo"),
     status_max: Optional[int] = Query(None, description="Status code maximo"),
@@ -59,9 +59,9 @@ async def get_logs(
     conditions = []
     params = []
 
-    if user_id:
+    if filter_user_id:
         conditions.append("user_id = ?")
-        params.append(user_id)
+        params.append(filter_user_id)
     if method:
         conditions.append("method = ?")
         params.append(method.upper())

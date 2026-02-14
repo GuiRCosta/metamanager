@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 DB_PATH = Path(__file__).parent.parent.parent / "data" / "activity.db"
 
 SKIP_PATHS = frozenset({"/", "/health", "/docs", "/openapi.json", "/redoc"})
+SKIP_PREFIXES = ("/api/logs", "/api/admin")
 
 
 def get_db_connection():
@@ -66,7 +67,7 @@ class ActivityLoggerMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 
-        if path in SKIP_PATHS or not path.startswith("/api/"):
+        if path in SKIP_PATHS or not path.startswith("/api/") or path.startswith(SKIP_PREFIXES):
             return await call_next(request)
 
         start_time = time.time()
