@@ -60,6 +60,7 @@ function SettingsPageContent() {
     access_token: "",
     business_id: "",
     ad_account_id: "",
+    page_id: "",
     api_version: "v24.0",
   })
 
@@ -441,6 +442,12 @@ function SettingsPageContent() {
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Ad Account ID</span>
                         <span className="font-mono text-xs">{metaApi.ad_account_id}</span>
+                      </div>
+                    )}
+                    {metaApi.page_id && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Page ID</span>
+                        <span className="font-mono text-xs">{metaApi.page_id}</span>
                       </div>
                     )}
                   </div>

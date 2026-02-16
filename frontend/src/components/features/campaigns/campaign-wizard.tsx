@@ -220,9 +220,18 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
 
   const isStep1Valid = campaign.name.trim() !== "" && campaign.objective !== ""
   const isStep2Valid = adSet.locations.length > 0 || adSet.interests.length > 0
+  const isLinkValid = (() => {
+    if (!creative.link) return false
+    try {
+      const parsed = new URL(creative.link)
+      return parsed.protocol === "http:" || parsed.protocol === "https:"
+    } catch {
+      return false
+    }
+  })()
   const isStep3Valid = creative.mode === "existing"
     ? creative.creative_id !== ""
-    : creative.imageFile !== null && creative.page_id !== "" && creative.link !== ""
+    : creative.imageFile !== null && creative.page_id !== "" && isLinkValid
 
   const canProceed = () => {
     if (currentStep === 1) return isStep1Valid

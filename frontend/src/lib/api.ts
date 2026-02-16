@@ -590,6 +590,7 @@ export interface MetaApiSettings {
   access_token?: string
   business_id?: string
   ad_account_id?: string
+  page_id?: string
   api_version?: string
 }
 

@@ -15,6 +15,25 @@ import {
 } from "@/components/ui/select"
 import { campaignsApi, pagesApi, type AdCreative, type PageItem } from "@/lib/api"
 
+const MAX_IMAGE_SIZE = 8 * 1024 * 1024 // 8 MB
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
+
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`
+  if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(0)} KB`
+  return `${bytes} B`
+}
+
+function isValidUrl(url: string): boolean {
+  if (!url) return true
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
 export interface CreativeData {
   mode: "upload" | "existing"
   imageFile: File | null
@@ -39,6 +58,7 @@ export function CreativeStep({ adAccountId, creative, onCreativeChange }: Creati
   const [existingCreatives, setExistingCreatives] = useState<AdCreative[]>([])
   const [loadingCreatives, setLoadingCreatives] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [imageError, setImageError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -78,9 +98,18 @@ export function CreativeStep({ adAccountId, creative, onCreativeChange }: Creati
     }
   }
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const validateAndSetImage = (file: File) => {
+    setImageError(null)
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setImageError("Formato nao suportado. Use JPEG, PNG ou WebP.")
+      return
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setImageError(`Imagem muito grande (${formatFileSize(file.size)}). Maximo: 8 MB.`)
+      return
+    }
 
     const preview = URL.createObjectURL(file)
     onCreativeChange({
@@ -88,22 +117,23 @@ export function CreativeStep({ adAccountId, creative, onCreativeChange }: Creati
       imageFile: file,
       imagePreview: preview,
     })
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    validateAndSetImage(file)
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     const file = e.dataTransfer.files?.[0]
-    if (!file || !file.type.startsWith("image/")) return
-
-    const preview = URL.createObjectURL(file)
-    onCreativeChange({
-      ...creative,
-      imageFile: file,
-      imagePreview: preview,
-    })
+    if (!file) return
+    validateAndSetImage(file)
   }
 
   const handleRemoveImage = () => {
+    setImageError(null)
     if (creative.imagePreview) {
       URL.revokeObjectURL(creative.imagePreview)
     }
@@ -240,6 +270,14 @@ export function CreativeStep({ adAccountId, creative, onCreativeChange }: Creati
               className="hidden"
               onChange={handleFileSelect}
             />
+            {imageError && (
+              <p className="text-sm text-destructive">{imageError}</p>
+            )}
+            {creative.imageFile && (
+              <p className="text-xs text-muted-foreground">
+                {creative.imageFile.name} ({formatFileSize(creative.imageFile.size)})
+              </p>
+            )}
           </div>
 
           {/* Ad Text Fields */}
@@ -272,7 +310,13 @@ export function CreativeStep({ adAccountId, creative, onCreativeChange }: Creati
               value={creative.link}
               onChange={(e) => onCreativeChange({ ...creative, link: e.target.value })}
               placeholder="https://seusite.com/pagina"
+              aria-invalid={creative.link !== "" && !isValidUrl(creative.link)}
             />
+            {creative.link !== "" && !isValidUrl(creative.link) && (
+              <p className="text-sm text-destructive">
+                URL invalida. Use o formato https://seusite.com
+              </p>
+            )}
           </div>
         </div>
       ) : (
