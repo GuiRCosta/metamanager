@@ -53,6 +53,32 @@ async def get_ad_accounts(user_id: Optional[str] = Query(None)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class PageItem(BaseModel):
+    id: str
+    name: str
+
+
+class PagesResponse(BaseModel):
+    success: bool
+    pages: list[PageItem]
+
+
+@router.get("/pages", response_model=PagesResponse)
+async def get_pages(user_id: Optional[str] = Query(None)):
+    """Lista Facebook Pages disponíveis para o usuário."""
+    try:
+        meta_api = get_meta_api(user_id=user_id)
+        pages = await meta_api.get_pages()
+        return PagesResponse(
+            success=True,
+            pages=[PageItem(**p) for p in pages],
+        )
+    except MetaAPIError:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("", response_model=SyncResponse)
 async def sync_all(ad_account_id: Optional[str] = Query(None, description="ID da conta de anúncios"), user_id: Optional[str] = Query(None)):
     """Sincroniza campanhas e métricas do Meta."""

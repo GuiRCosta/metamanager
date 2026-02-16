@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from pydantic import BaseModel as PydanticBaseModel
 from typing import Optional, List
 import logging
 
@@ -647,6 +648,72 @@ async def list_creatives(
         }
     except Exception as e:
         logging.error(f"Failed to list creatives: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+MAX_IMAGE_SIZE = 8 * 1024 * 1024  # 8 MB
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+@router.post("/creatives/upload")
+async def upload_creative_image(
+    file: UploadFile = File(...),
+    ad_account_id: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+):
+    """Faz upload de imagem para a conta de anúncios e retorna o hash."""
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo de arquivo não suportado: {file.content_type}. Use JPEG, PNG ou WebP.",
+        )
+
+    image_bytes = await file.read()
+    if len(image_bytes) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code=400, detail="Imagem excede o limite de 8 MB.")
+
+    try:
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
+        image_hash = await meta_api.upload_ad_image(image_bytes, file.filename or "ad_image.jpg")
+        return {"success": True, "image_hash": image_hash}
+    except MetaAPIError:
+        raise
+    except Exception as e:
+        logging.error(f"Failed to upload image: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class CreativeCreateRequest(PydanticBaseModel):
+    name: str
+    page_id: str
+    image_hash: str
+    message: str
+    link: str
+    headline: str = ""
+
+
+@router.post("/creatives/create")
+async def create_creative(
+    data: CreativeCreateRequest,
+    ad_account_id: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+):
+    """Cria um criativo de anúncio com imagem."""
+    try:
+        meta_api = get_meta_api(ad_account_id, user_id=user_id)
+        creative = await meta_api.create_ad_creative(
+            name=data.name,
+            page_id=data.page_id,
+            image_hash=data.image_hash,
+            message=data.message,
+            link=data.link,
+            headline=data.headline,
+        )
+        return {"success": True, "creative": creative}
+    except MetaAPIError:
+        raise
+    except Exception as e:
+        logging.error(f"Failed to create creative: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

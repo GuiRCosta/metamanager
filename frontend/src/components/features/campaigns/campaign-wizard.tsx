@@ -11,6 +11,7 @@ import {
   Users,
   Eye,
   Megaphone,
+  ImageIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +34,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { InterestSearch } from "@/components/features/targeting/interest-search"
 import { LocationSearch } from "@/components/features/targeting/location-search"
+import { CreativeStep, type CreativeData } from "@/components/features/campaigns/creative-step"
 import { campaignsApi, analyticsApi, type Interest, type Location, type ReachEstimate } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -78,7 +80,8 @@ const optimizationGoals = [
 const steps = [
   { id: 1, name: "Campanha", icon: Target },
   { id: 2, name: "Público", icon: Users },
-  { id: 3, name: "Revisão", icon: Eye },
+  { id: 3, name: "Criativo", icon: ImageIcon },
+  { id: 4, name: "Revisão", icon: Eye },
 ]
 
 function formatNumber(value: number): string {
@@ -112,6 +115,19 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
     genders: [0],
     interests: [],
     locations: [],
+  })
+
+  // Creative data
+  const [creative, setCreative] = useState<CreativeData>({
+    mode: "upload",
+    imageFile: null,
+    imagePreview: null,
+    page_id: "",
+    message: "",
+    headline: "",
+    link: "",
+    creative_id: "",
+    ad_name: "",
   })
 
   // Reach estimate
@@ -204,19 +220,23 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
 
   const isStep1Valid = campaign.name.trim() !== "" && campaign.objective !== ""
   const isStep2Valid = adSet.locations.length > 0 || adSet.interests.length > 0
+  const isStep3Valid = creative.mode === "existing"
+    ? creative.creative_id !== ""
+    : creative.imageFile !== null && creative.page_id !== "" && creative.link !== ""
 
   const canProceed = () => {
     if (currentStep === 1) return isStep1Valid
     if (currentStep === 2) return isStep2Valid
+    if (currentStep === 3) return isStep3Valid
     return true
   }
 
   const handleNext = async () => {
-    if (currentStep === 2) {
+    if (currentStep === 3) {
       // Fetch reach estimate when moving to review
       await fetchReachEstimate()
     }
-    setCurrentStep((prev) => Math.min(prev + 1, 3))
+    setCurrentStep((prev) => Math.min(prev + 1, 4))
   }
 
   const handleBack = () => {
@@ -228,7 +248,7 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
       setSubmitting(true)
       setError(null)
 
-      // Create campaign
+      // 1. Create campaign
       const campaignData = {
         name: campaign.name,
         objective: campaign.objective,
@@ -238,11 +258,11 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
 
       const createdCampaign = await campaignsApi.create(campaignData, adAccountId)
 
-      // Create ad set with targeting from step 2
+      // 2. Create ad set with targeting from step 2
       const targetingSpec = buildTargetingSpec()
       const adSetName = adSet.name || `${campaign.name} - Conjunto 1`
 
-      await campaignsApi.createAdSet(
+      const createdAdSet = await campaignsApi.createAdSet(
         createdCampaign.id,
         {
           name: adSetName,
@@ -254,6 +274,43 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
         },
         adAccountId
       )
+
+      // 3. Handle creative (upload new or use existing)
+      let creativeId = creative.creative_id
+
+      if (creative.mode === "upload" && creative.imageFile) {
+        // 3a. Upload image
+        const uploadResult = await campaignsApi.uploadImage(creative.imageFile, adAccountId)
+
+        // 3b. Create creative
+        const creativeResult = await campaignsApi.createCreative(
+          {
+            name: creative.ad_name || `${campaign.name} - Criativo`,
+            page_id: creative.page_id,
+            image_hash: uploadResult.image_hash,
+            message: creative.message,
+            link: creative.link,
+            headline: creative.headline,
+          },
+          adAccountId
+        )
+
+        creativeId = creativeResult.creative.id
+      }
+
+      // 4. Create ad
+      if (creativeId) {
+        await campaignsApi.createAd(
+          createdCampaign.id,
+          createdAdSet.id,
+          {
+            name: creative.ad_name || `${campaign.name} - Anuncio 1`,
+            creative_id: creativeId,
+            status: campaign.status,
+          },
+          adAccountId
+        )
+      }
 
       router.push(`/campaigns/${createdCampaign.id}`)
     } catch (err) {
@@ -267,7 +324,7 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
     <div className="space-y-6">
       {/* Progress Steps */}
       <div className="relative">
-        <Progress value={(currentStep / 3) * 100} className="h-2" />
+        <Progress value={(currentStep / 4) * 100} className="h-2" />
         <div className="flex justify-between mt-4">
           {steps.map((step) => {
             const Icon = step.icon
@@ -531,8 +588,30 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
         </div>
       )}
 
-      {/* Step 3: Review */}
+      {/* Step 3: Creative */}
       {currentStep === 3 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              Criativo do Anuncio
+            </CardTitle>
+            <CardDescription>
+              Faça upload de uma imagem ou selecione um criativo existente
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CreativeStep
+              adAccountId={adAccountId || ""}
+              creative={creative}
+              onCreativeChange={setCreative}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 4: Review */}
+      {currentStep === 4 && (
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -627,6 +706,51 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
                 </div>
               </div>
 
+              {/* Creative Summary */}
+              <div className="space-y-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  Criativo
+                </h3>
+                <div className="grid gap-4 md:grid-cols-2 bg-muted/50 rounded-xl p-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Modo</p>
+                    <p className="font-medium">
+                      {creative.mode === "upload" ? "Novo Criativo" : "Criativo Existente"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Nome do Anuncio</p>
+                    <p className="font-medium">{creative.ad_name || "-"}</p>
+                  </div>
+                  {creative.mode === "upload" ? (
+                    <>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Imagem</p>
+                        <p className="font-medium">
+                          {creative.imageFile ? creative.imageFile.name : "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Link</p>
+                        <p className="font-medium truncate">{creative.link || "-"}</p>
+                      </div>
+                      {creative.message && (
+                        <div className="md:col-span-2">
+                          <p className="text-sm text-muted-foreground">Texto</p>
+                          <p className="font-medium line-clamp-2">{creative.message}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-muted-foreground">ID do Criativo</p>
+                      <p className="font-medium">{creative.creative_id || "-"}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Reach Estimate */}
               <div className="space-y-4">
                 <h3 className="font-semibold">Estimativa de Alcance</h3>
@@ -666,7 +790,7 @@ export function CampaignWizard({ adAccountId, onCancel }: CampaignWizardProps) {
           {currentStep === 1 ? "Cancelar" : "Voltar"}
         </Button>
 
-        {currentStep < 3 ? (
+        {currentStep < 4 ? (
           <Button onClick={handleNext} disabled={!canProceed()}>
             Próximo
             <ChevronRight className="ml-2 h-4 w-4" />

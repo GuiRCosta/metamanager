@@ -52,6 +52,30 @@ export const accountsApi = {
   getAll: () => fetchApi<AdAccountsResponse>("/api/sync/accounts"),
 }
 
+export interface PageItem {
+  id: string
+  name: string
+}
+
+export interface PagesResponse {
+  success: boolean
+  pages: PageItem[]
+}
+
+export interface ImageUploadResponse {
+  success: boolean
+  image_hash: string
+}
+
+export interface CreativeCreateResponse {
+  success: boolean
+  creative: { id: string; name: string }
+}
+
+export const pagesApi = {
+  getAll: () => fetchApi<PagesResponse>("/api/sync/pages"),
+}
+
 // Campaigns API
 export interface MetaCampaign {
   id: string
@@ -317,6 +341,35 @@ export const campaignsApi = {
     return fetchApi<{ success: boolean; creatives: AdCreative[]; total: number }>(
       `/api/campaigns/creatives/list?${params.toString()}`
     )
+  },
+
+  uploadImage: async (file: File, adAccountId?: string): Promise<ImageUploadResponse> => {
+    const formData = new FormData()
+    formData.append("file", file)
+    const params = new URLSearchParams()
+    if (adAccountId) params.append("ad_account_id", adAccountId)
+    if (_apiUserId) params.append("user_id", _apiUserId)
+    const qs = params.toString()
+    const response = await fetch(
+      `${API_BASE_URL}/api/campaigns/creatives/upload${qs ? `?${qs}` : ""}`,
+      { method: "POST", body: formData }
+    )
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Erro no upload" }))
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+    }
+    return response.json()
+  },
+
+  createCreative: (
+    data: { name: string; page_id: string; image_hash: string; message: string; link: string; headline?: string },
+    adAccountId?: string
+  ) => {
+    const params = adAccountId ? `?ad_account_id=${adAccountId}` : ""
+    return fetchApi<CreativeCreateResponse>(`/api/campaigns/creatives/create${params}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
   },
 }
 

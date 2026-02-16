@@ -1,3 +1,4 @@
+import io
 import httpx
 import asyncio
 import json
@@ -47,6 +48,7 @@ class MetaAPI:
         self.access_token = access_token or config.access_token
         self.ad_account_id = ad_account_id or config.ad_account_id
         self.business_id = business_id or config.business_id
+        self.page_id = config.page_id
         self.api_version = api_version or config.api_version
         self.client = httpx.AsyncClient(timeout=30.0)
 
@@ -131,6 +133,105 @@ class MetaAPI:
                 raise MetaAPIError(f"HTTP error: {str(e)}")
 
         raise MetaAPIError(f"Request failed after {MAX_RETRIES} attempts: {last_error}")
+
+    async def _upload(
+        self,
+        endpoint: str,
+        files: dict,
+        params: Optional[dict] = None,
+    ) -> dict:
+        """Faz upload multipart para a Meta API."""
+        if not self.access_token:
+            raise MetaAPIError(
+                "Meta API não configurada. Conecte sua conta em Configurações > Meta API.",
+                error_code=400,
+            )
+
+        url = f"{self._base_url}/{endpoint}"
+        default_params = {"access_token": self.access_token}
+        if params:
+            default_params.update(params)
+
+        try:
+            response = await self.client.post(
+                url,
+                files=files,
+                params=default_params,
+            )
+            result = response.json()
+
+            if "error" in result:
+                error = result["error"]
+                error_msg = error.get("message", "Unknown error")
+                raise MetaAPIError(error_msg, error.get("code"))
+
+            return result
+        except httpx.HTTPError as e:
+            raise MetaAPIError(f"Upload error: {str(e)}")
+
+    async def get_pages(self) -> list[dict]:
+        """Lista Facebook Pages disponíveis para o usuário."""
+        result = await self._request(
+            "GET",
+            "me/accounts",
+            params={"fields": "id,name"},
+        )
+        return [
+            {"id": page["id"], "name": page.get("name", "Sem nome")}
+            for page in result.get("data", [])
+        ]
+
+    async def upload_ad_image(
+        self,
+        image_bytes: bytes,
+        filename: str = "ad_image.jpg",
+    ) -> str:
+        """Faz upload de imagem e retorna o image_hash."""
+        files = {
+            "filename": (filename, io.BytesIO(image_bytes), "image/jpeg"),
+        }
+        result = await self._upload(
+            f"act_{self.ad_account_id}/adimages",
+            files=files,
+        )
+
+        images = result.get("images", {})
+        if images:
+            first_image = next(iter(images.values()))
+            return first_image.get("hash", "")
+
+        raise MetaAPIError("Falha no upload: nenhum hash retornado")
+
+    async def create_ad_creative(
+        self,
+        name: str,
+        page_id: str,
+        image_hash: str,
+        message: str,
+        link: str,
+        headline: str = "",
+    ) -> dict:
+        """Cria um criativo de anúncio com imagem."""
+        link_data: dict = {
+            "image_hash": image_hash,
+            "link": link,
+            "message": message,
+        }
+        if headline:
+            link_data["name"] = headline
+
+        result = await self._request(
+            "POST",
+            f"act_{self.ad_account_id}/adcreatives",
+            data={
+                "name": name,
+                "object_story_spec": json.dumps({
+                    "page_id": page_id,
+                    "link_data": link_data,
+                }),
+            },
+        )
+        return {"id": result.get("id", ""), "name": name}
 
     async def get_campaigns(
         self,

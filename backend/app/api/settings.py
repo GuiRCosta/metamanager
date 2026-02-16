@@ -34,6 +34,7 @@ class MetaConfig:
     access_token: str
     business_id: str
     ad_account_id: str
+    page_id: str
     api_version: str
 
 
@@ -81,6 +82,7 @@ def get_meta_config(user_id: str | None = None) -> MetaConfig:
     access_token = json_settings.meta_api.access_token or env_settings.meta_access_token
     business_id = json_settings.meta_api.business_id or env_settings.meta_business_id
     ad_account_id = json_settings.meta_api.ad_account_id or env_settings.meta_ad_account_id
+    page_id = json_settings.meta_api.page_id or ""
     api_version = json_settings.meta_api.api_version or env_settings.meta_api_version
 
     # Normaliza ad_account_id (remove 'act_' se presente para consistência)
@@ -91,6 +93,7 @@ def get_meta_config(user_id: str | None = None) -> MetaConfig:
         access_token=access_token or "",
         business_id=business_id or "",
         ad_account_id=ad_account_id or "",
+        page_id=page_id,
         api_version=api_version or "v24.0",
     )
 

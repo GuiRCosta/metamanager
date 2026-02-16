@@ -18,6 +18,7 @@ class MetaApiSettings(BaseModel):
     access_token: Optional[str] = None
     business_id: Optional[str] = None
     ad_account_id: Optional[str] = None  # Formato: act_xxx ou apenas xxx
+    page_id: Optional[str] = None
     api_version: str = "v24.0"
 
 
