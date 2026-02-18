@@ -241,15 +241,18 @@ export async function GET(request: NextRequest) {
     const firstAccount = adAccounts[0]
     const adAccountId = firstAccount?.account_id || ""
 
-    let businessId = ""
-    let businessName = ""
-    if (firstAccount) {
-      const accountDetails = await fetchBusinessFromAdAccount(
-        accessToken,
-        firstAccount.id
-      )
-      businessId = accountDetails.business?.id || ""
-      businessName = accountDetails.business?.name || ""
+    // Validate required scopes
+    const REQUIRED_SCOPES = ["ads_management", "ads_read"]
+    const grantedScopes = tokenDebug.data?.scopes || []
+    const missingScopes = REQUIRED_SCOPES.filter(
+      (scope) => !grantedScopes.includes(scope)
+    )
+
+    if (missingScopes.length > 0) {
+      return settingsRedirect(baseUrl, {
+        meta_error: "missing_scopes",
+        meta_error_description: `Permissoes ausentes: ${missingScopes.join(", ")}. Reconecte e autorize todas as permissoes.`,
+      })
     }
 
     // Extract token expiration (0 = never expires, which is typical for SUAT)
@@ -261,6 +264,24 @@ export async function GET(request: NextRequest) {
 
     // Use first page found (if any)
     const pageId = pages[0]?.id || ""
+
+    // Collect unique businesses from all ad accounts
+    const businessMap = new Map<string, string>()
+    const businessFetches = adAccounts.map(async (account) => {
+      const details = await fetchBusinessFromAdAccount(
+        accessToken,
+        account.id
+      )
+      if (details.business?.id) {
+        businessMap.set(details.business.id, details.business.name)
+      }
+    })
+    await Promise.all(businessFetches)
+
+    // Use first business found (fallback to the one from firstAccount)
+    const firstBusiness = businessMap.entries().next().value
+    const businessId = firstBusiness?.[0] || ""
+    const businessName = firstBusiness?.[1] || ""
 
     const userId = (session.user as { id?: string })?.id
     await saveSettingsToBackend(
@@ -283,6 +304,9 @@ export async function GET(request: NextRequest) {
     }
     if (adAccounts.length > 1) {
       redirectParams.multi_accounts = "true"
+    }
+    if (businessMap.size > 1) {
+      redirectParams.multi_businesses = "true"
     }
 
     return settingsRedirect(baseUrl, redirectParams)

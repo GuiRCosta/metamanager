@@ -122,12 +122,16 @@ function SettingsPageContent() {
 
     if (connectionStatus.isConnected) {
       const businessName = connectionStatus.businessName || "sua empresa"
-      const multiMsg = connectionStatus.multiAccounts
-        ? " Voce tem multiplas contas — selecione abaixo."
-        : ""
+      const parts = [`Conectado com sucesso! Empresa: ${businessName}.`]
+      if (connectionStatus.multiAccounts) {
+        parts.push("Voce tem multiplas contas de anuncios — selecione abaixo.")
+      }
+      if (connectionStatus.multiBusinesses) {
+        parts.push("Multiplos Business Managers detectados — o primeiro foi selecionado automaticamente.")
+      }
       setConnectionMessage({
         type: "success",
-        message: `Conectado com sucesso! Empresa: ${businessName}.${multiMsg}`,
+        message: parts.join(" "),
       })
       // Reload settings to get fresh data from callback
       settingsApi.get(userId).then((settings) => {

@@ -41,19 +41,22 @@ Roadmap de melhorias identificadas apos a implementacao completa do Facebook Log
 ## Prioridade Media
 
 ### 6. Validacao de Scopes do Token
-- **Status**: Pendente
+- **Status**: Implementado
 - **Problema**: Nao verifica se o token tem as permissoes necessarias (`ads_management`, `ads_read`)
-- **Solucao**: Chamar `GET /me/permissions` apos obter token e validar scopes obrigatorios
+- **Solucao**: Validar scopes via `debug_token` no callback OAuth; redirecionar com erro `missing_scopes` se insuficientes
+- **Arquivos**: `callback/route.ts`, `meta-connection.ts`
 
 ### 7. Suporte a Multiplos Business Managers
-- **Status**: Pendente
+- **Status**: Implementado
 - **Problema**: Se usuario tem acesso a mais de um BM, so o primeiro e salvo
-- **Solucao**: Listar BMs disponiveis e permitir selecao
+- **Solucao**: Detectar multiplos BMs via fetch de todas as ad accounts; sinalizar no redirect e exibir aviso no Settings
+- **Arquivos**: `callback/route.ts`, `meta-connection.ts`, `settings/page.tsx`
 
 ### 8. Error Handling Aprimorado
-- **Status**: Pendente
+- **Status**: Implementado
 - **Problema**: Erros de "permission denied" ou token invalido no backend nao sao logados
-- **Solucao**: Adicionar logging estruturado com Sentry para erros de API Meta
+- **Solucao**: Logging estruturado em `MetaAPI._request` com contexto (endpoint, error_code, subcode, type); handler em `main.py` com Sentry context e captura para erros 5xx
+- **Arquivos**: `backend/app/tools/meta_api.py`, `backend/app/main.py`
 
 ---
 

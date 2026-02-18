@@ -2,6 +2,7 @@ export interface MetaConnectionStatus {
   isConnected: boolean
   businessName?: string
   multiAccounts?: boolean
+  multiBusinesses?: boolean
   error?: string
   errorDescription?: string
 }
@@ -12,12 +13,13 @@ export function parseMetaConnectionParams(
   const metaConnected = searchParams.get("meta_connected") === "true"
   const businessName = searchParams.get("business_name") || undefined
   const multiAccounts = searchParams.get("multi_accounts") === "true"
+  const multiBusinesses = searchParams.get("multi_businesses") === "true"
   const metaError = searchParams.get("meta_error") || undefined
   const metaErrorDescription =
     searchParams.get("meta_error_description") || undefined
 
   if (metaConnected) {
-    return { isConnected: true, businessName, multiAccounts }
+    return { isConnected: true, businessName, multiAccounts, multiBusinesses }
   }
 
   if (metaError) {
@@ -38,6 +40,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_state: "Validacao de seguranca falhou. Tente novamente.",
   access_denied:
     "Acesso negado. Voce precisa autorizar o aplicativo para continuar.",
+  missing_scopes:
+    "Permissoes insuficientes. Reconecte e autorize todas as permissoes solicitadas.",
   unexpected_error: "Ocorreu um erro inesperado. Tente novamente.",
 }
 

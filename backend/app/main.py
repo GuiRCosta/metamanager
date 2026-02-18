@@ -1,4 +1,5 @@
 import os
+import logging
 from contextlib import asynccontextmanager
 
 import sentry_sdk
@@ -71,9 +72,28 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
+logger = logging.getLogger("meta_api")
+
+
 @app.exception_handler(MetaAPIError)
 async def meta_api_error_handler(request: Request, exc: MetaAPIError):
     status_code = exc.error_code if exc.error_code and 400 <= exc.error_code < 600 else 400
+    logger.error(
+        "MetaAPIError handled",
+        extra={
+            "error_code": exc.error_code,
+            "error_message": exc.message,
+            "path": str(request.url.path),
+            "method": request.method,
+        },
+    )
+    sentry_sdk.set_context("meta_api", {
+        "error_code": exc.error_code,
+        "error_message": exc.message,
+        "endpoint": str(request.url.path),
+    })
+    if status_code >= 500:
+        sentry_sdk.capture_exception(exc)
     return JSONResponse(status_code=status_code, content={"detail": exc.message})
 
 app.add_middleware(

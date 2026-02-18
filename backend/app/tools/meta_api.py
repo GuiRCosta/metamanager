@@ -1,9 +1,12 @@
 import io
+import logging
 import httpx
 import asyncio
 import json
 from typing import Optional
 from datetime import datetime
+
+logger = logging.getLogger("meta_api")
 
 # Rate limiting configuration
 MAX_RETRIES = 3
@@ -96,8 +99,11 @@ class MetaAPI:
                 )
 
                 if response.status_code == 429:
-                    # Rate limit - retry with exponential backoff
                     retry_delay = BASE_RETRY_DELAY * (2 ** attempt)
+                    logger.warning(
+                        "Meta API rate limit (HTTP 429)",
+                        extra={"endpoint": endpoint, "method": method, "attempt": attempt + 1},
+                    )
                     if attempt < MAX_RETRIES - 1:
                         await asyncio.sleep(retry_delay)
                         continue
@@ -108,25 +114,55 @@ class MetaAPI:
                 if "error" in result:
                     error = result["error"]
                     error_code = error.get("code")
+                    error_subcode = error.get("error_subcode")
+                    error_msg = error.get("message", "Unknown error")
+                    error_user_msg = error.get("error_user_msg") or error.get("error_user_title")
+
                     # Meta API rate limit error codes: 4, 17, 32, 613
                     if error_code in [4, 17, 32, 613] and attempt < MAX_RETRIES - 1:
                         retry_delay = BASE_RETRY_DELAY * (2 ** attempt)
+                        logger.warning(
+                            "Meta API rate limit (error code)",
+                            extra={
+                                "endpoint": endpoint,
+                                "error_code": error_code,
+                                "attempt": attempt + 1,
+                            },
+                        )
                         await asyncio.sleep(retry_delay)
                         continue
-                    # Include more error details
-                    error_msg = error.get("message", "Unknown error")
-                    error_subcode = error.get("error_subcode")
-                    error_user_msg = error.get("error_user_msg") or error.get("error_user_title")
+
                     full_msg = error_msg
                     if error_subcode:
                         full_msg += f" (subcode: {error_subcode})"
                     if error_user_msg:
                         full_msg += f" - {error_user_msg}"
+
+                    logger.error(
+                        "Meta API error response",
+                        extra={
+                            "endpoint": endpoint,
+                            "method": method,
+                            "error_code": error_code,
+                            "error_subcode": error_subcode,
+                            "error_message": error_msg,
+                            "error_type": error.get("type"),
+                        },
+                    )
                     raise MetaAPIError(full_msg, error_code)
 
                 return result
             except httpx.HTTPError as e:
                 last_error = e
+                logger.error(
+                    "Meta API HTTP error",
+                    extra={
+                        "endpoint": endpoint,
+                        "method": method,
+                        "attempt": attempt + 1,
+                        "error": str(e),
+                    },
+                )
                 if attempt < MAX_RETRIES - 1:
                     await asyncio.sleep(BASE_RETRY_DELAY * (2 ** attempt))
                     continue
@@ -318,8 +354,6 @@ class MetaAPI:
         special_ad_categories: Optional[list[str]] = None,
     ) -> dict:
         """Cria uma nova campanha."""
-        import logging
-
         data = {
             "name": name,
             "objective": objective,
@@ -333,7 +367,7 @@ class MetaAPI:
             # Required when not using Campaign Budget Optimization
             data["is_adset_budget_sharing_enabled"] = False
 
-        logging.info(f"Creating campaign with data: {data}")
+        logger.info("Creating campaign", extra={"campaign_name": name, "objective": objective, "status": status})
 
         result = await self._request(
             "POST",
