@@ -1,6 +1,7 @@
 export interface MetaConnectionStatus {
   isConnected: boolean
   businessName?: string
+  multiAccounts?: boolean
   error?: string
   errorDescription?: string
 }
@@ -10,12 +11,13 @@ export function parseMetaConnectionParams(
 ): MetaConnectionStatus {
   const metaConnected = searchParams.get("meta_connected") === "true"
   const businessName = searchParams.get("business_name") || undefined
+  const multiAccounts = searchParams.get("multi_accounts") === "true"
   const metaError = searchParams.get("meta_error") || undefined
   const metaErrorDescription =
     searchParams.get("meta_error_description") || undefined
 
   if (metaConnected) {
-    return { isConnected: true, businessName }
+    return { isConnected: true, businessName, multiAccounts }
   }
 
   if (metaError) {
@@ -52,4 +54,36 @@ export function getMetaErrorMessage(
     description ||
     "Erro desconhecido ao conectar com Facebook."
   )
+}
+
+export function getTokenExpirationStatus(
+  tokenExpiresAt: string | null | undefined
+): { label: string; variant: "default" | "warning" | "expired" } {
+  if (!tokenExpiresAt) {
+    return { label: "Nunca expira", variant: "default" }
+  }
+
+  const expiresDate = new Date(tokenExpiresAt)
+  const now = new Date()
+  const daysUntilExpiry = Math.ceil(
+    (expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+  )
+
+  if (daysUntilExpiry <= 0) {
+    return { label: "Token expirado", variant: "expired" }
+  }
+
+  if (daysUntilExpiry <= 7) {
+    return {
+      label: `Expira em ${daysUntilExpiry} dia${daysUntilExpiry > 1 ? "s" : ""}`,
+      variant: "warning",
+    }
+  }
+
+  const formatted = expiresDate.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
+  return { label: `Expira em ${formatted}`, variant: "default" }
 }

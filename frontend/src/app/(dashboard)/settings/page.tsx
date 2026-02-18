@@ -3,8 +3,8 @@
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Save, Key, Bell, Target, Loader2, CheckCircle, XCircle, MessageCircle, Plus, X, Link2 } from "lucide-react"
-import { parseMetaConnectionParams, getMetaErrorMessage } from "@/lib/meta-connection"
+import { Save, Key, Bell, Target, Loader2, CheckCircle, XCircle, MessageCircle, Plus, X, Link2, Unlink, AlertTriangle } from "lucide-react"
+import { parseMetaConnectionParams, getMetaErrorMessage, getTokenExpirationStatus } from "@/lib/meta-connection"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,8 @@ import { Badge } from "@/components/ui/badge"
 import {
   settingsApi,
   whatsappApi,
-  type Settings,
+  accountsApi,
+  type AdAccount,
   type BudgetSettings,
   type MetaApiSettings,
   type NotificationSettings,
@@ -44,6 +45,9 @@ function SettingsPageContent() {
     type: "success" | "error"
     message: string
   } | null>(null)
+  const [adAccounts, setAdAccounts] = useState<AdAccount[]>([])
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false)
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
 
   // Settings state
   const [budget, setBudget] = useState<BudgetSettings>({
@@ -61,7 +65,8 @@ function SettingsPageContent() {
     business_id: "",
     ad_account_id: "",
     page_id: "",
-    api_version: "v24.0",
+    api_version: "v22.0",
+    token_expires_at: null,
   })
 
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -117,10 +122,17 @@ function SettingsPageContent() {
 
     if (connectionStatus.isConnected) {
       const businessName = connectionStatus.businessName || "sua empresa"
+      const multiMsg = connectionStatus.multiAccounts
+        ? " Voce tem multiplas contas — selecione abaixo."
+        : ""
       setConnectionMessage({
         type: "success",
-        message: `Conectado com sucesso! Empresa: ${businessName}`,
+        message: `Conectado com sucesso! Empresa: ${businessName}.${multiMsg}`,
       })
+      // Reload settings to get fresh data from callback
+      settingsApi.get(userId).then((settings) => {
+        setMetaApi(settings.meta_api)
+      }).catch(() => {})
       router.replace("/settings", { scroll: false })
     } else if (connectionStatus.error) {
       setConnectionMessage({
@@ -132,7 +144,7 @@ function SettingsPageContent() {
       })
       router.replace("/settings", { scroll: false })
     }
-  }, [searchParams, router])
+  }, [searchParams, router, userId])
 
   // Load scheduler status
   useEffect(() => {
@@ -180,6 +192,66 @@ function SettingsPageContent() {
       setTestResult({ success: false, message: "Erro ao testar conexão" })
     } finally {
       setIsTesting(false)
+    }
+  }
+
+  const handleLoadAccounts = async () => {
+    setIsLoadingAccounts(true)
+    try {
+      const result = await accountsApi.getAll()
+      setAdAccounts(result.accounts || [])
+    } catch {
+      setAdAccounts([])
+    } finally {
+      setIsLoadingAccounts(false)
+    }
+  }
+
+  const handleSwitchAccount = async (accountId: string) => {
+    try {
+      await settingsApi.setDefaultAccount(accountId)
+      setMetaApi((prev) => ({ ...prev, ad_account_id: accountId }))
+      setConnectionMessage({
+        type: "success",
+        message: "Conta de anuncios alterada com sucesso!",
+      })
+      setTimeout(() => setConnectionMessage(null), 3000)
+    } catch {
+      setConnectionMessage({
+        type: "error",
+        message: "Erro ao trocar conta de anuncios",
+      })
+    }
+  }
+
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true)
+    try {
+      const response = await fetch("/api/meta/disconnect", { method: "POST" })
+      if (!response.ok) {
+        throw new Error("Falha ao desconectar")
+      }
+      setMetaApi({
+        access_token: "",
+        business_id: "",
+        ad_account_id: "",
+        page_id: "",
+        api_version: "v22.0",
+      })
+      setAdAccounts([])
+      setTestResult(null)
+      setConnectionMessage({
+        type: "success",
+        message: "Facebook desconectado com sucesso.",
+      })
+      setTimeout(() => setConnectionMessage(null), 3000)
+    } catch {
+      setConnectionMessage({
+        type: "error",
+        message: "Erro ao desconectar do Facebook",
+      })
+    } finally {
+      setIsDisconnecting(false)
     }
   }
 
@@ -408,79 +480,175 @@ function SettingsPageContent() {
               )}
 
               {metaApi.access_token ? (
-                <div className="rounded-lg border border-green-200 bg-green-50 p-4 space-y-4 dark:border-green-800 dark:bg-green-950">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
-                      <CheckCircle className="h-5 w-5" />
-                      <p className="font-medium">Facebook Conectado</p>
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-4 space-y-4 dark:border-green-800 dark:bg-green-950">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+                        <CheckCircle className="h-5 w-5" />
+                        <p className="font-medium">Facebook Conectado</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            window.location.href = "/api/meta/connect"
+                          }}
+                        >
+                          Reconectar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDisconnect}
+                          disabled={isDisconnecting}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+                        >
+                          {isDisconnecting ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Unlink className="mr-1 h-3 w-3" />
+                          )}
+                          Desconectar
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        window.location.href = "/api/meta/connect"
-                      }}
-                    >
-                      Reconectar
-                    </Button>
-                  </div>
 
-                  <div className="grid gap-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Access Token</span>
-                      <span className="font-mono text-xs">
-                        {metaApi.access_token.slice(0, 12)}...{metaApi.access_token.slice(-6)}
-                      </span>
-                    </div>
-                    {metaApi.business_id && (
+                    <div className="grid gap-3 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Business ID</span>
-                        <span className="font-mono text-xs">{metaApi.business_id}</span>
+                        <span className="text-muted-foreground">Access Token</span>
+                        <span className="font-mono text-xs">
+                          {metaApi.access_token.slice(0, 12)}...{metaApi.access_token.slice(-6)}
+                        </span>
                       </div>
-                    )}
-                    {metaApi.ad_account_id && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Ad Account ID</span>
-                        <span className="font-mono text-xs">{metaApi.ad_account_id}</span>
-                      </div>
-                    )}
-                    {metaApi.page_id && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Page ID</span>
-                        <span className="font-mono text-xs">{metaApi.page_id}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-4 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleTestConnection}
-                      disabled={isTesting}
-                    >
-                      {isTesting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Testando...
-                        </>
-                      ) : (
-                        "Testar Conexao"
+                      {metaApi.business_id && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Business ID</span>
+                          <span className="font-mono text-xs">{metaApi.business_id}</span>
+                        </div>
                       )}
-                    </Button>
+                      {metaApi.ad_account_id && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Ad Account ID</span>
+                          <span className="font-mono text-xs">{metaApi.ad_account_id}</span>
+                        </div>
+                      )}
+                      {metaApi.page_id && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Page ID</span>
+                          <span className="font-mono text-xs">{metaApi.page_id}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Token</span>
+                        {(() => {
+                          const status = getTokenExpirationStatus(metaApi.token_expires_at)
+                          return (
+                            <span className={`flex items-center gap-1 text-xs ${
+                              status.variant === "expired"
+                                ? "text-red-600 dark:text-red-400"
+                                : status.variant === "warning"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-green-600 dark:text-green-400"
+                            }`}>
+                              {status.variant === "expired" && <XCircle className="h-3 w-3" />}
+                              {status.variant === "warning" && <AlertTriangle className="h-3 w-3" />}
+                              {status.variant === "default" && <CheckCircle className="h-3 w-3" />}
+                              {status.label}
+                            </span>
+                          )
+                        })()}
+                      </div>
+                    </div>
 
-                    {testResult && (
-                      <div
-                        className={`flex items-center gap-2 text-sm ${
-                          testResult.success ? "text-green-600" : "text-red-600"
-                        }`}
+                    <div className="flex items-center gap-4 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleTestConnection}
+                        disabled={isTesting}
                       >
-                        {testResult.success ? (
-                          <CheckCircle className="h-4 w-4" />
+                        {isTesting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Testando...
+                          </>
                         ) : (
-                          <XCircle className="h-4 w-4" />
+                          "Testar Conexao"
                         )}
-                        {testResult.message}
+                      </Button>
+
+                      {testResult && (
+                        <div
+                          className={`flex items-center gap-2 text-sm ${
+                            testResult.success ? "text-green-600" : "text-red-600"
+                          }`}
+                        >
+                          {testResult.success ? (
+                            <CheckCircle className="h-4 w-4" />
+                          ) : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                          {testResult.message}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Account Selector */}
+                  <div className="rounded-lg border p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="font-medium text-sm">Conta de Anuncios</p>
+                        <p className="text-xs text-muted-foreground">
+                          Selecione a conta de anuncios ativa
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleLoadAccounts}
+                        disabled={isLoadingAccounts}
+                      >
+                        {isLoadingAccounts ? (
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        ) : null}
+                        {adAccounts.length > 0 ? "Atualizar" : "Carregar Contas"}
+                      </Button>
+                    </div>
+
+                    {adAccounts.length > 0 && (
+                      <div className="grid gap-2">
+                        {adAccounts.map((account) => {
+                          const isActive = account.account_id === metaApi.ad_account_id
+                          return (
+                            <button
+                              key={account.id}
+                              onClick={() => {
+                                if (!isActive) {
+                                  handleSwitchAccount(account.account_id)
+                                }
+                              }}
+                              className={`flex items-center justify-between rounded-md border p-3 text-left text-sm transition-colors ${
+                                isActive
+                                  ? "border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950"
+                                  : "hover:bg-muted/50 cursor-pointer"
+                              }`}
+                            >
+                              <div>
+                                <p className="font-medium">{account.name}</p>
+                                <p className="text-xs text-muted-foreground font-mono">
+                                  {account.account_id}
+                                </p>
+                              </div>
+                              {isActive && (
+                                <Badge variant="secondary" className="text-green-700 dark:text-green-300">
+                                  Ativa
+                                </Badge>
+                              )}
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
                   </div>

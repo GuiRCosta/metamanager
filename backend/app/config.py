@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     meta_ad_account_id: str = ""
     meta_business_id: str = ""
     meta_page_id: str = ""
-    meta_api_version: str = "v24.0"
+    meta_api_version: str = "v22.0"
 
     # LLM Provider (OpenAI, OpenRouter, ou qualquer API compatível)
     llm_api_key: str = ""

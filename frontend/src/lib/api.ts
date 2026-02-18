@@ -592,6 +592,7 @@ export interface MetaApiSettings {
   ad_account_id?: string
   page_id?: string
   api_version?: string
+  token_expires_at?: string | null
 }
 
 export interface NotificationSettings {

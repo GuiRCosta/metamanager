@@ -19,7 +19,8 @@ class MetaApiSettings(BaseModel):
     business_id: Optional[str] = None
     ad_account_id: Optional[str] = None  # Formato: act_xxx ou apenas xxx
     page_id: Optional[str] = None
-    api_version: str = "v24.0"
+    api_version: str = "v22.0"
+    token_expires_at: Optional[str] = None  # ISO 8601 datetime or None (never expires)
 
 
 class NotificationSettings(BaseModel):

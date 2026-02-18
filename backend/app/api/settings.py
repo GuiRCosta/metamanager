@@ -94,7 +94,7 @@ def get_meta_config(user_id: str | None = None) -> MetaConfig:
         business_id=business_id or "",
         ad_account_id=ad_account_id or "",
         page_id=page_id,
-        api_version=api_version or "v24.0",
+        api_version=api_version or "v22.0",
     )
 
 
